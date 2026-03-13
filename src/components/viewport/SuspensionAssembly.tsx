@@ -23,30 +23,69 @@ function JointSphere({ position, color = CYAN, size = 2 }: { position: [number, 
   )
 }
 
-function WheelRing({ position, radius, camber = 0, toe = 0 }: { position: [number, number, number]; radius: number; camber: number; toe: number }) {
-  const points = useMemo(() => {
+function WheelTyre({ position, radius, width, camber = 0, toe = 0 }: { position: [number, number, number]; radius: number; width: number; camber: number; toe: number }) {
+  const halfW = width / 2
+  const segments = 32
+
+  const innerRing = useMemo(() => {
     const pts: [number, number, number][] = []
-    const segments = 32
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2
-      pts.push([0, Math.cos(angle) * radius, Math.sin(angle) * radius])
+      pts.push([-halfW, Math.cos(angle) * radius, Math.sin(angle) * radius])
     }
     return pts
-  }, [radius])
+  }, [radius, halfW])
+
+  const outerRing = useMemo(() => {
+    const pts: [number, number, number][] = []
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2
+      pts.push([halfW, Math.cos(angle) * radius, Math.sin(angle) * radius])
+    }
+    return pts
+  }, [radius, halfW])
+
+  // Longitudinal lines connecting inner and outer rings at intervals
+  const longiLines = useMemo(() => {
+    const lines: [number, number, number][][] = []
+    const count = 16
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2
+      const y = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
+      lines.push([[-halfW, y, z], [halfW, y, z]])
+    }
+    return lines
+  }, [radius, halfW])
 
   const camberRad = (camber * Math.PI) / 180
   const toeRad = (toe * Math.PI) / 180
 
   return (
     <group position={position} rotation={[0, toeRad, camberRad]}>
-      <Line points={points} color={WHEEL_COLOR} lineWidth={1.5} />
+      <Line points={innerRing} color={WHEEL_COLOR} lineWidth={1.5} />
+      <Line points={outerRing} color={WHEEL_COLOR} lineWidth={1.5} />
+      {longiLines.map((pts, i) => (
+        <Line key={i} points={pts} color={WHEEL_COLOR} lineWidth={0.5} />
+      ))}
       {/* Contact patch indicator */}
       <Line
-        points={[[-3, -radius, 0], [3, -radius, 0]]}
+        points={[[-halfW, -radius, 0], [halfW, -radius, 0]]}
         color={WHEEL_COLOR}
         lineWidth={2}
       />
     </group>
+  )
+}
+
+function ContactPatchShadow({ position, width, length }: { position: [number, number, number]; width: number; length: number }) {
+  const hw = width / 2
+  const hl = length / 2
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={position}>
+      <planeGeometry args={[hw * 2, hl * 2]} />
+      <meshBasicMaterial color="#00FFE0" transparent opacity={0.12} />
+    </mesh>
   )
 }
 
@@ -74,6 +113,25 @@ function SpringCoil({ start, end }: { start: [number, number, number]; end: [num
   return <Line points={points} color={YELLOW} lineWidth={1} />
 }
 
+/**
+ * Apply the same pitch-then-roll rotation used by the Chassis <group> transforms.
+ * Rotation centre is at world origin, matching Three.js nested group behaviour.
+ */
+function rotateWithChassis(
+  x: number, y: number, z: number,
+  rollRad: number, pitchRad: number,
+): [number, number, number] {
+  // Pitch around X-axis (inner rotation in Chassis)
+  const cp = Math.cos(pitchRad), sp = Math.sin(pitchRad)
+  const y1 = y * cp - z * sp
+  const z1 = y * sp + z * cp
+  // Roll around Z-axis (outer rotation in Chassis)
+  const cr = Math.cos(rollRad), sr = Math.sin(rollRad)
+  const x2 = x * cr - y1 * sr
+  const y2 = x * sr + y1 * cr
+  return [x2, y2, z1]
+}
+
 function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'right' }) {
   const vehicle = useVehicleStore((s) => s.vehicle)
   const isFront = corner === 'FL' || corner === 'FR'
@@ -93,65 +151,89 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
 
-  // Chassis position at this corner considering heave, roll, pitch
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
-  const lateralLever = sideSign * geo.trackWidth / 2
-  const chassisAtCorner = vehicle.rideHeight + chassisHeave +
-    lateralLever * Math.sin(rollRad) +
-    longitudinalOffset * Math.sin(pitchRad)
 
-  // Wheel position
+  // Helper: rotate a chassis-local point into world space
+  const rot = (x: number, y: number, z: number): [number, number, number] =>
+    rotateWithChassis(x, y, z, rollRad, pitchRad)
+
+  // Wheel position (independent of chassis rotation)
   const wheelY = cornerState.wheelPosition
   const wheelX = sideSign * geo.trackWidth / 2
   const wheelZ = longitudinalOffset
 
-  // Tyre radius (approximate based on scale)
-  const tyreRadius = vehicle.scale === '1:8' ? 42 : 35
+  const tyreRadius = vehicle.tyreRadius
 
-  // Inner pivot positions (on chassis)
-  const innerPivotX = sideSign * (geo.trackWidth / 2 - geo.lowerWishboneLength)
-  const innerPivotLowerY = chassisAtCorner - vehicle.rideHeight + geo.innerPivotHeightLower
-  const innerPivotUpperY = chassisAtCorner - vehicle.rideHeight + geo.innerPivotHeightUpper
+  // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
-  // Lower wishbone: A-shape with two inner pivots (fore and aft spread)
-  const innerPivotForeZ = longitudinalOffset + geo.innerPivotSpread / 2
-  const innerPivotAftZ = longitudinalOffset - geo.innerPivotSpread / 2
+  // Inner pivot positions on the chassis
+  const innerPivotXLocal = sideSign * (geo.trackWidth / 2 - geo.lowerWishboneLength)
+  const innerLowerYLocal = chassisHeave + geo.innerPivotHeightLower
+  const innerUpperYLocal = chassisHeave + geo.innerPivotHeightUpper
 
-  // Outer ball joint position (hub carrier lower)
+  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset + geo.innerPivotSpread / 2)
+  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset - geo.innerPivotSpread / 2)
+
+  // Upper arm inner pivot
+  const upperArmLength = geo.lowerWishboneLength * geo.upperArmLengthRatio
+  const innerUpperXLocal = sideSign * (geo.trackWidth / 2 - upperArmLength)
+  const innerPivotUpper = rot(innerUpperXLocal, innerUpperYLocal, longitudinalOffset)
+
+  // Shock tower (chassis-attached)
+  const shockTowerXLocal = innerPivotXLocal + sideSign * shock.mountPosition * 0.5 -
+    sideSign * shock.shockLength * Math.sin((shock.shockAngle * Math.PI) / 180) * 0.3
+  const shockTowerYLocal = chassisHeave + shock.towerHeight
+  const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
+
+  // ── Chassis height at this corner (for outer joint approximation) ──
+  const chassisAtCornerY = rot(
+    sideSign * geo.trackWidth / 2,
+    vehicle.rideHeight + chassisHeave,
+    longitudinalOffset,
+  )[1]
+
+  // ── Outer ball joints (hub-side, driven by wheel travel) ──
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
   const outerLowerX = wheelX
-  const outerLowerY = innerPivotLowerY + geo.lowerWishboneLength * Math.sin(lowerArmAngleRad) + (wheelY - chassisAtCorner + vehicle.rideHeight) * 0.3
+  const outerLowerY = innerPivotLowerFore[1] + geo.lowerWishboneLength * Math.sin(lowerArmAngleRad) +
+    (wheelY - chassisAtCornerY) * 0.3
   const outerLowerZ = longitudinalOffset
 
-  // Upper arm
-  const upperArmLength = geo.lowerWishboneLength * geo.upperArmLengthRatio
   const upperArmAngleRad = (geo.upperArmAngle * Math.PI) / 180
-  const innerUpperX = sideSign * (geo.trackWidth / 2 - upperArmLength)
   const outerUpperX = wheelX
-  const outerUpperY = innerPivotUpperY + upperArmLength * Math.sin(upperArmAngleRad) + (wheelY - chassisAtCorner + vehicle.rideHeight) * 0.5
+  const outerUpperY = innerPivotUpper[1] + upperArmLength * Math.sin(upperArmAngleRad) +
+    (wheelY - chassisAtCornerY) * 0.5
   const outerUpperZ = longitudinalOffset
 
-  // Shock absorber positions
-  const shockLowerX = innerPivotX + sideSign * shock.mountPosition * 0.5
-  const shockLowerY = innerPivotLowerY + (outerLowerY - innerPivotLowerY) * (shock.mountPosition / geo.lowerWishboneLength)
-  const shockAngleRad = (shock.shockAngle * Math.PI) / 180
-  const shockUpperX = shockLowerX - sideSign * shock.shockLength * Math.sin(shockAngleRad) * 0.3
-  const shockUpperY = shock.towerHeight + chassisAtCorner - vehicle.rideHeight
-  const shockUpperZ = longitudinalOffset
+  // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
+  const frac = shock.mountPosition / geo.lowerWishboneLength
+  const shockLowerX = innerPivotLowerFore[0] + (outerLowerX - innerPivotLowerFore[0]) * frac
+  const shockLowerY = innerPivotLowerFore[1] + (outerLowerY - innerPivotLowerFore[1]) * frac
+  const shockLowerZ = innerPivotLowerFore[2] + (outerLowerZ - innerPivotLowerFore[2]) * frac
 
   // Dynamic camber
   const camber = cornerState.camberAngle
 
   return (
     <group>
-      {/* Wheel */}
-      <WheelRing
+      {/* Tyre */}
+      <WheelTyre
         position={[wheelX, wheelY, wheelZ]}
         radius={tyreRadius}
+        width={vehicle.tyreWidth}
         camber={camber}
         toe={geo.staticToe * sideSign}
       />
+
+      {/* Contact patch shadow on ground */}
+      {!cornerState.wheelAirborne && (
+        <ContactPatchShadow
+          position={[wheelX, 0.1, wheelZ]}
+          width={vehicle.tyreWidth}
+          length={tyreRadius * 0.4}
+        />
+      )}
 
       {/* Airborne indicator */}
       {cornerState.wheelAirborne && (
@@ -164,7 +246,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       {/* Lower wishbone - A-shape */}
       <Line
         points={[
-          [innerPivotX, innerPivotLowerY, innerPivotForeZ],
+          innerPivotLowerFore,
           [outerLowerX, outerLowerY, outerLowerZ],
         ]}
         color={CYAN}
@@ -172,7 +254,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       />
       <Line
         points={[
-          [innerPivotX, innerPivotLowerY, innerPivotAftZ],
+          innerPivotLowerAft,
           [outerLowerX, outerLowerY, outerLowerZ],
         ]}
         color={CYAN}
@@ -182,7 +264,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       {/* Upper arm */}
       <Line
         points={[
-          [innerUpperX, innerPivotUpperY, outerUpperZ],
+          innerPivotUpper,
           [outerUpperX, outerUpperY, outerUpperZ],
         ]}
         color={LIGHT_CYAN}
@@ -215,8 +297,8 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       {/* Shock absorber body */}
       <Line
         points={[
-          [shockLowerX, shockLowerY, shockUpperZ],
-          [shockUpperX, shockUpperY, shockUpperZ],
+          [shockLowerX, shockLowerY, shockLowerZ],
+          shockTower,
         ]}
         color={ORANGE}
         lineWidth={2}
@@ -224,15 +306,19 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
       {/* Spring coil */}
       <SpringCoil
-        start={[shockLowerX, shockLowerY, shockUpperZ]}
-        end={[shockLowerX + (shockUpperX - shockLowerX) * 0.6, shockLowerY + (shockUpperY - shockLowerY) * 0.6, shockUpperZ]}
+        start={[shockLowerX, shockLowerY, shockLowerZ]}
+        end={[
+          shockLowerX + (shockTower[0] - shockLowerX) * 0.6,
+          shockLowerY + (shockTower[1] - shockLowerY) * 0.6,
+          shockLowerZ + (shockTower[2] - shockLowerZ) * 0.6,
+        ]}
       />
 
       {/* Joint spheres */}
-      <JointSphere position={[innerPivotX, innerPivotLowerY, innerPivotForeZ]} />
-      <JointSphere position={[innerPivotX, innerPivotLowerY, innerPivotAftZ]} />
+      <JointSphere position={innerPivotLowerFore} />
+      <JointSphere position={innerPivotLowerAft} />
       <JointSphere position={[outerLowerX, outerLowerY, outerLowerZ]} />
-      <JointSphere position={[innerUpperX, innerPivotUpperY, outerUpperZ]} color={LIGHT_CYAN} />
+      <JointSphere position={innerPivotUpper} color={LIGHT_CYAN} />
       <JointSphere position={[outerUpperX, outerUpperY, outerUpperZ]} color={LIGHT_CYAN} />
     </group>
   )
@@ -323,30 +409,35 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
   const geo = useVehicleStore((s) => axle === 'front' ? s.frontGeometry : s.rearGeometry)
   const swayBar = useVehicleStore((s) => axle === 'front' ? s.frontSwayBar : s.rearSwayBar)
   const chassisHeave = useSimulationStore((s) => s.chassisHeave)
+  const rollAngle = useSimulationStore((s) => s.rollAngle)
+  const pitchAngle = useSimulationStore((s) => s.pitchAngle)
 
   if (!swayBar.enabled) return null
+
+  const rollRad = (rollAngle * Math.PI) / 180
+  const pitchRad = (pitchAngle * Math.PI) / 180
+  const rot = (x: number, y: number, z: number): [number, number, number] =>
+    rotateWithChassis(x, y, z, rollRad, pitchRad)
 
   const frontWeightFrac = vehicle.weightDistribution / 100
   const z = axle === 'front'
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
-  const y = vehicle.rideHeight + chassisHeave + geo.innerPivotHeightLower + 5
+  const y = chassisHeave + geo.innerPivotHeightLower + 5
   const halfWidth = swayBar.armLength
+
+  const pL = rot(-halfWidth, y, z)
+  const pC = rot(0, y + 3, z)
+  const pR = rot(halfWidth, y, z)
+  const pLdrop = rot(-halfWidth, y - 8, z)
+  const pRdrop = rot(halfWidth, y - 8, z)
 
   return (
     <group>
-      <Line
-        points={[
-          [-halfWidth, y, z],
-          [0, y + 3, z],
-          [halfWidth, y, z],
-        ]}
-        color={MAGENTA}
-        lineWidth={1.5}
-      />
+      <Line points={[pL, pC, pR]} color={MAGENTA} lineWidth={1.5} />
       {/* Drop links */}
-      <Line points={[[-halfWidth, y, z], [-halfWidth, y - 8, z]]} color={MAGENTA} lineWidth={1} />
-      <Line points={[[halfWidth, y, z], [halfWidth, y - 8, z]]} color={MAGENTA} lineWidth={1} />
+      <Line points={[pL, pLdrop]} color={MAGENTA} lineWidth={1} />
+      <Line points={[pR, pRdrop]} color={MAGENTA} lineWidth={1} />
     </group>
   )
 }
@@ -355,23 +446,32 @@ function SteeringLinkage() {
   const vehicle = useVehicleStore((s) => s.vehicle)
   const frontGeo = useVehicleStore((s) => s.frontGeometry)
   const chassisHeave = useSimulationStore((s) => s.chassisHeave)
+  const rollAngle = useSimulationStore((s) => s.rollAngle)
+  const pitchAngle = useSimulationStore((s) => s.pitchAngle)
+
+  const rollRad = (rollAngle * Math.PI) / 180
+  const pitchRad = (pitchAngle * Math.PI) / 180
+  const rot = (x: number, y: number, z: number): [number, number, number] =>
+    rotateWithChassis(x, y, z, rollRad, pitchRad)
 
   const frontWeightFrac = vehicle.weightDistribution / 100
   const z = vehicle.wheelbase * (1 - frontWeightFrac) - 5
-  const y = vehicle.rideHeight + chassisHeave + frontGeo.innerPivotHeightLower
+  const y = chassisHeave + frontGeo.innerPivotHeightLower
   const halfTrack = frontGeo.trackWidth / 2
+
+  const bL = rot(-8, y, z)
+  const bC = rot(0, y + 5, z)
+  const bR = rot(8, y, z)
+  const tL = rot(-halfTrack + 5, y, z)
+  const tR = rot(halfTrack - 5, y, z)
 
   return (
     <group>
       {/* Bellcrank */}
-      <Line
-        points={[[-8, y, z], [0, y + 5, z], [8, y, z]]}
-        color={GREEN}
-        lineWidth={1.5}
-      />
+      <Line points={[bL, bC, bR]} color={GREEN} lineWidth={1.5} />
       {/* Tie rods */}
-      <Line points={[[-8, y, z], [-halfTrack + 5, y, z]]} color={GREEN} lineWidth={1} />
-      <Line points={[[8, y, z], [halfTrack - 5, y, z]]} color={GREEN} lineWidth={1} />
+      <Line points={[bL, tL]} color={GREEN} lineWidth={1} />
+      <Line points={[bR, tR]} color={GREEN} lineWidth={1} />
     </group>
   )
 }

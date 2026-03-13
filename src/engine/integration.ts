@@ -17,7 +17,9 @@ import { computeHydraulicForces } from './hydraulics';
 import { updateKinematics } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
-const DEFAULT_TYRE_RADIUS = 26;
+function getTyreRadius(vehicle: VehicleParams): number {
+  return vehicle.tyreRadius ?? 42;
+}
 
 function getCornerPositions(
   vehicle: VehicleParams,
@@ -119,7 +121,7 @@ export function stepSimulation(
     RR: { ...state.corners.RR },
   };
 
-  const tyreRadius = DEFAULT_TYRE_RADIUS;
+  const tyreRadius = getTyreRadius(vehicle);
 
   // Tyre forces
   for (const c of CORNERS) {
@@ -229,8 +231,8 @@ export function stepSimulation(
   for (const c of CORNERS) {
     let newWheelPos = state.corners[c].wheelPosition + newWheelVels[c] * dt;
 
-    // Hard ground constraint
-    const groundMin = groundHeights[c];
+    // Hard ground constraint: axle centre cannot go below ground + tyre radius
+    const groundMin = groundHeights[c] + tyreRadius;
     if (newWheelPos < groundMin) {
       newWheelPos = groundMin;
       if (newWheelVels[c] < 0) newWheelVels[c] = 0;
