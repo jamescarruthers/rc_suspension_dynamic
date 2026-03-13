@@ -23,6 +23,7 @@ export interface VehicleParams {
   unsprungMassPerCorner: number;  // g, 20-200, default 65
   tyreSpringRate: number;         // N/mm, 10-500, default 80
   tyreDamping: number;            // Ns/mm, 0.001-0.5, default 0.05
+  tyreRadius: number;             // mm, loaded tyre radius (1:8 ~42, 1:10 ~35)
 }
 
 // ─── Axle geometry ──────────────────────────────────────────────────

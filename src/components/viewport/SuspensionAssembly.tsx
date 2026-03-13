@@ -106,8 +106,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const wheelX = sideSign * geo.trackWidth / 2
   const wheelZ = longitudinalOffset
 
-  // Tyre radius (approximate based on scale)
-  const tyreRadius = vehicle.scale === '1:8' ? 42 : 35
+  const tyreRadius = vehicle.tyreRadius
 
   // Inner pivot positions (on chassis)
   const innerPivotX = sideSign * (geo.trackWidth / 2 - geo.lowerWishboneLength)

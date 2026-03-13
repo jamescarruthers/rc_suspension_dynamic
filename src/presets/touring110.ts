@@ -16,6 +16,7 @@ export const vehicle: VehicleParams = {
   unsprungMassPerCorner: 35,
   tyreSpringRate: 150,
   tyreDamping: 0.02,
+  tyreRadius: 26,
 };
 
 export const frontGeometry: AxleGeometry = {
