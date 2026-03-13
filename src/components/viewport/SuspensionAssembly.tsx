@@ -23,30 +23,69 @@ function JointSphere({ position, color = CYAN, size = 2 }: { position: [number, 
   )
 }
 
-function WheelRing({ position, radius, camber = 0, toe = 0 }: { position: [number, number, number]; radius: number; camber: number; toe: number }) {
-  const points = useMemo(() => {
+function WheelTyre({ position, radius, width, camber = 0, toe = 0 }: { position: [number, number, number]; radius: number; width: number; camber: number; toe: number }) {
+  const halfW = width / 2
+  const segments = 32
+
+  const innerRing = useMemo(() => {
     const pts: [number, number, number][] = []
-    const segments = 32
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2
-      pts.push([0, Math.cos(angle) * radius, Math.sin(angle) * radius])
+      pts.push([-halfW, Math.cos(angle) * radius, Math.sin(angle) * radius])
     }
     return pts
-  }, [radius])
+  }, [radius, halfW])
+
+  const outerRing = useMemo(() => {
+    const pts: [number, number, number][] = []
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2
+      pts.push([halfW, Math.cos(angle) * radius, Math.sin(angle) * radius])
+    }
+    return pts
+  }, [radius, halfW])
+
+  // Longitudinal lines connecting inner and outer rings at intervals
+  const longiLines = useMemo(() => {
+    const lines: [number, number, number][][] = []
+    const count = 16
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2
+      const y = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
+      lines.push([[-halfW, y, z], [halfW, y, z]])
+    }
+    return lines
+  }, [radius, halfW])
 
   const camberRad = (camber * Math.PI) / 180
   const toeRad = (toe * Math.PI) / 180
 
   return (
     <group position={position} rotation={[0, toeRad, camberRad]}>
-      <Line points={points} color={WHEEL_COLOR} lineWidth={1.5} />
+      <Line points={innerRing} color={WHEEL_COLOR} lineWidth={1.5} />
+      <Line points={outerRing} color={WHEEL_COLOR} lineWidth={1.5} />
+      {longiLines.map((pts, i) => (
+        <Line key={i} points={pts} color={WHEEL_COLOR} lineWidth={0.5} />
+      ))}
       {/* Contact patch indicator */}
       <Line
-        points={[[-3, -radius, 0], [3, -radius, 0]]}
+        points={[[-halfW, -radius, 0], [halfW, -radius, 0]]}
         color={WHEEL_COLOR}
         lineWidth={2}
       />
     </group>
+  )
+}
+
+function ContactPatchShadow({ position, width, length }: { position: [number, number, number]; width: number; length: number }) {
+  const hw = width / 2
+  const hl = length / 2
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={position}>
+      <planeGeometry args={[hw * 2, hl * 2]} />
+      <meshBasicMaterial color="#00FFE0" transparent opacity={0.12} />
+    </mesh>
   )
 }
 
@@ -144,13 +183,23 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   return (
     <group>
-      {/* Wheel */}
-      <WheelRing
+      {/* Tyre */}
+      <WheelTyre
         position={[wheelX, wheelY, wheelZ]}
         radius={tyreRadius}
+        width={vehicle.tyreWidth}
         camber={camber}
         toe={geo.staticToe * sideSign}
       />
+
+      {/* Contact patch shadow on ground */}
+      {!cornerState.wheelAirborne && (
+        <ContactPatchShadow
+          position={[wheelX, 0.1, wheelZ]}
+          width={vehicle.tyreWidth}
+          length={tyreRadius * 0.4}
+        />
+      )}
 
       {/* Airborne indicator */}
       {cornerState.wheelAirborne && (

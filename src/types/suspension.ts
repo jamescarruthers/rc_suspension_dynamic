@@ -24,6 +24,7 @@ export interface VehicleParams {
   tyreSpringRate: number;         // N/mm, 10-500, default 80
   tyreDamping: number;            // Ns/mm, 0.001-0.5, default 0.05
   tyreRadius: number;             // mm, loaded tyre radius (1:8 ~42, 1:10 ~35)
+  tyreWidth: number;              // mm, tyre section width (1:8 ~45, 1:10 ~35)
 }
 
 // ─── Axle geometry ──────────────────────────────────────────────────

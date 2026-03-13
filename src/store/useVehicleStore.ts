@@ -21,6 +21,7 @@ const defaultVehicle: VehicleParams = {
   tyreSpringRate: 80,
   tyreDamping: 0.05,
   tyreRadius: 42,
+  tyreWidth: 45,
 };
 
 const defaultFrontGeometry: AxleGeometry = {
@@ -246,6 +247,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
             tyreSpringRate: 60,
             tyreDamping: 0.04,
             tyreRadius: 35,
+            tyreWidth: 35,
           },
           frontGeometry: {
             ...defaultFrontGeometry,
