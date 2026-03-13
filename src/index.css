@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0A0E14;
+  --color-bg-secondary: #111820;
+  --color-bg-panel: #151C25;
+  --color-bg-input: #1A2332;
+  --color-border: #1E2D3D;
+  --color-accent: #00FFE0;
+  --color-accent-dim: #00B8A3;
+  --color-warning: #FF6B35;
+  --color-text-primary: #E0E6ED;
+  --color-text-secondary: #8899AA;
+  --color-text-muted: #556677;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  --font-sans: 'DM Sans', 'Outfit', system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    overflow: hidden;
+  }
+
+  #root {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 2px;
+    outline: none;
+    flex: 1;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+  }
+
+  input[type="number"] {
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 5px;
+    border-radius: 4px;
+    outline: none;
+    width: 65px;
+  }
+
+  input[type="number"]:focus {
+    border-color: var(--color-accent);
+  }
+
+  select {
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 5px;
+    border-radius: 4px;
+    outline: none;
+  }
+
+  select:focus {
+    border-color: var(--color-accent);
+  }
+}

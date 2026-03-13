@@ -1,0 +1,104 @@
+import type {
+  VehicleParams,
+  AxleGeometry,
+  AxleShock,
+  AxleSwayBar,
+  HydraulicConfig,
+} from '../types/suspension';
+
+export const vehicle: VehicleParams = {
+  scale: '1:10',
+  wheelbase: 283,
+  totalWeight: 1600,
+  weightDistribution: 50,
+  cgHeight: 25,
+  rideHeight: 20,
+  unsprungMassPerCorner: 40,
+  tyreSpringRate: 60,
+  tyreDamping: 0.03,
+};
+
+export const frontGeometry: AxleGeometry = {
+  trackWidth: 249,
+  lowerWishboneLength: 52,
+  upperArmLengthRatio: 0.50,
+  lowerArmAngle: 0,
+  upperArmAngle: -6,
+  innerPivotHeightLower: 10,
+  innerPivotHeightUpper: 35,
+  innerPivotSpread: 26,
+  kpiAngle: 5,
+  casterAngle: 12,
+  staticCamber: -0.5,
+  staticToe: 0,
+  antiDive: 4,
+  antiSquat: 0,
+};
+
+export const rearGeometry: AxleGeometry = {
+  trackWidth: 249,
+  lowerWishboneLength: 55,
+  upperArmLengthRatio: 0.45,
+  lowerArmAngle: 1.5,
+  upperArmAngle: -8,
+  innerPivotHeightLower: 11,
+  innerPivotHeightUpper: 33,
+  innerPivotSpread: 28,
+  kpiAngle: 0,
+  casterAngle: 0,
+  staticCamber: -2.5,
+  staticToe: 2.5,
+  antiDive: 0,
+  antiSquat: 2.5,
+};
+
+export const frontShock: AxleShock = {
+  shockLength: 70,
+  mountPosition: 34,
+  towerHeight: 58,
+  shockAngle: 12,
+  springRate: 4.5,
+  dampingCompression: 0.08,
+  dampingRebound: 0.12,
+  maxDroop: 25,
+  maxBump: 18,
+};
+
+export const rearShock: AxleShock = {
+  shockLength: 78,
+  mountPosition: 38,
+  towerHeight: 62,
+  shockAngle: 8,
+  springRate: 5.5,
+  dampingCompression: 0.10,
+  dampingRebound: 0.14,
+  maxDroop: 22,
+  maxBump: 20,
+};
+
+export const frontSwayBar: AxleSwayBar = {
+  enabled: true,
+  wireDiameter: 1.6,
+  armLength: 22,
+};
+
+export const rearSwayBar: AxleSwayBar = {
+  enabled: true,
+  wireDiameter: 1.8,
+  armLength: 25,
+};
+
+export const hydraulic: HydraulicConfig = {
+  enabled: false,
+  topology: 'lateral',
+  cylinderBore: 8,
+  cylinderRodDiameter: 4,
+  fluidViscosity: 50,
+  orificeDiameter: 0.8,
+  lineInternalDiameter: 2.0,
+  lineLength: 200,
+  accumulatorSpringRate: 5.0,
+  accumulatorPreload: 10,
+  heightCorrectorEnabled: false,
+  heightCorrectorResponseTime: 500,
+};
