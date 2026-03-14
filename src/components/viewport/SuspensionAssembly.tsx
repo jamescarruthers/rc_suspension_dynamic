@@ -230,8 +230,10 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockLowerY = innerPivotLowerFore[1] + (outerLowerY - innerPivotLowerFore[1]) * frac
   const shockLowerZ = innerPivotLowerFore[2] + (outerLowerZ - innerPivotLowerFore[2]) * frac
 
-  // Wheel lateral position follows the lower ball joint (track changes with travel)
-  const wheelXActual = outerLowerX
+  // Wheel centre sits at the kingpin midpoint (centre of upright)
+  const kingpinMidX = (outerLowerX + outerUpperX) / 2
+  const kingpinMidY = (outerLowerY + outerUpperY) / 2
+  const wheelXActual = kingpinMidX
 
   return (
     <group>
@@ -311,6 +313,17 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         dashSize={3}
         gapSize={3}
       />
+
+      {/* Axle stub from kingpin centre to wheel */}
+      <Line
+        points={[
+          [kingpinMidX, kingpinMidY, longitudinalOffset],
+          [wheelXActual, wheelY, wheelZ],
+        ]}
+        color={WHITE}
+        lineWidth={1.5}
+      />
+      <JointSphere position={[kingpinMidX, kingpinMidY, longitudinalOffset]} color={WHITE} size={1.5} />
 
       {/* Shock absorber body */}
       <Line
