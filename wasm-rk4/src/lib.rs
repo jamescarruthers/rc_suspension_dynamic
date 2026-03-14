@@ -122,7 +122,7 @@ const R_HEIGHT: usize = 1;
 const R_WIDTH: usize = 2;
 const R_SPEED: usize = 3;
 const R_FREQUENCY: usize = 4;
-const R_TARGET_CORNER: usize = 5; // 0=FL,1=FR,2=RL,3=RR
+const R_TARGET_CORNER: usize = 5; // 0=FL,1=FR,2=RL,3=RR,4=front,5=rear,6=all
 const R_SEED: usize = 6;
 // Corner positions (x=longitudinal offset from CG, y=lateral offset)
 const R_FL_X: usize = 7;
@@ -468,11 +468,22 @@ fn get_ground_heights(road: &[f64], time: f64, out: &mut [f64; 4]) {
     match road_type {
         0 => {} // flat
         1 => {
-            // singleBump - only target corner (repeating if frequency > 0)
-            let t = target.min(3);
-            let raw_pos = corner_bump_position(time, speed, cx[t]);
-            let pos = repeating_bump_position(raw_pos, width, speed, frequency);
-            out[t] = half_sine_bump(pos, width, height);
+            // singleBump - target corner(s) (repeating if frequency > 0)
+            // target: 0=FL,1=FR,2=RL,3=RR,4=front(FL+FR),5=rear(RL+RR),6=all
+            let corners: &[usize] = match target {
+                0 => &[0],
+                1 => &[1],
+                2 => &[2],
+                3 => &[3],
+                4 => &[0, 1],      // front
+                5 => &[2, 3],      // rear
+                _ => &[0, 1, 2, 3], // all (6 or any other)
+            };
+            for &i in corners {
+                let raw_pos = corner_bump_position(time, speed, cx[i]);
+                let pos = repeating_bump_position(raw_pos, width, speed, frequency);
+                out[i] = half_sine_bump(pos, width, height);
+            }
         }
         2 => {
             // speedBump - all corners (repeating if frequency > 0)

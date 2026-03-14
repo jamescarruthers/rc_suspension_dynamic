@@ -72,17 +72,37 @@ function repeatingBumpPosition(
   return posInCycle;
 }
 
+/**
+ * Resolve target corner specification to a list of corners.
+ * 'FL'/'FR'/'RL'/'RR' → single corner
+ * 'front' → FL + FR, 'rear' → RL + RR, 'all' → all four
+ */
+function resolveTargetCorners(target: string | undefined): Corner[] {
+  switch (target) {
+    case 'FL': return ['FL'];
+    case 'FR': return ['FR'];
+    case 'RL': return ['RL'];
+    case 'RR': return ['RR'];
+    case 'front': return ['FL', 'FR'];
+    case 'rear': return ['RL', 'RR'];
+    case 'all': return ['FL', 'FR', 'RL', 'RR'];
+    default: return ['FL'];
+  }
+}
+
 function singleBump(
   params: RoadProfileParams,
   positions: CornerPositions,
   time: number,
 ): Record<Corner, number> {
   const result: Record<Corner, number> = { FL: 0, FR: 0, RL: 0, RR: 0 };
-  const target = params.targetCorner ?? 'FL';
+  const targets = resolveTargetCorners(params.targetCorner);
 
-  const rawPos = cornerBumpPosition(time, params.speed, positions[target].x);
-  const pos = repeatingBumpPosition(rawPos, params.width, params.speed, params.frequency);
-  result[target] = halfSineBump(pos, params.width, params.height);
+  for (const c of targets) {
+    const rawPos = cornerBumpPosition(time, params.speed, positions[c].x);
+    const pos = repeatingBumpPosition(rawPos, params.width, params.speed, params.frequency);
+    result[c] = halfSineBump(pos, params.width, params.height);
+  }
 
   return result;
 }

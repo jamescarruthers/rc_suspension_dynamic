@@ -198,8 +198,9 @@ const ROAD_TYPE_MAP: Record<string, number> = {
   random: 6,
 };
 
-const CORNER_INDEX_MAP: Record<string, number> = {
+const TARGET_CORNER_MAP: Record<string, number> = {
   FL: 0, FR: 1, RL: 2, RR: 3,
+  front: 4, rear: 5, all: 6,
 };
 
 function packRoad(
@@ -214,7 +215,7 @@ function packRoad(
   r[2] = state.roadBumpWidth;
   r[3] = state.roadSpeed;
   r[4] = state.roadFrequency;
-  r[5] = CORNER_INDEX_MAP[state.roadTargetCorner as string] ?? 0;
+  r[5] = TARGET_CORNER_MAP[state.roadTargetCorner as string] ?? 0;
   r[6] = 42; // seed
 
   // Corner positions (longitudinal and lateral offsets from CG)
