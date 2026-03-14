@@ -24,7 +24,7 @@ function JointSphere({ position, color = CYAN, size = 2 }: { position: [number, 
   )
 }
 
-function WheelTyre({ position, radius, width, camber = 0, toe = 0 }: { position: [number, number, number]; radius: number; width: number; camber: number; toe: number }) {
+function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0 }: { position: [number, number, number]; radius: number; width: number; camber: number; toe: number; caster: number }) {
   const halfW = width / 2
   const segments = 32
 
@@ -61,9 +61,10 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0 }: { position:
 
   const camberRad = (camber * Math.PI) / 180
   const toeRad = (toe * Math.PI) / 180
+  const casterRad = (caster * Math.PI) / 180
 
   return (
-    <group position={position} rotation={[0, toeRad, camberRad]}>
+    <group position={position} rotation={[-casterRad, toeRad, camberRad]}>
       <Line points={innerRing} color={WHEEL_COLOR} lineWidth={1.5} />
       <Line points={outerRing} color={WHEEL_COLOR} lineWidth={1.5} />
       {longiLines.map((pts, i) => (
@@ -236,10 +237,48 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
-  // Upright angle for stub axle direction
-  const kpiRad = (geo.kpiAngle * Math.PI) / 180
-  const camberChangeRad = ((camber - geo.staticCamber) * Math.PI) / 180
-  const uprightAngle = kpiRad - camberChangeRad
+  // ── Kingpin axis — derived from actual BJ positions ──
+  const kingpinDirX = outerUpperX - outerLowerX
+  const kingpinDirY = outerUpperY - outerLowerY
+  const kingpinDirZ = outerUpperZ - outerLowerZ
+  const kingpinLen = Math.sqrt(kingpinDirX * kingpinDirX + kingpinDirY * kingpinDirY + kingpinDirZ * kingpinDirZ)
+  // Normalized kingpin axis (from lower to upper BJ)
+  const kpNx = kingpinLen > 1e-6 ? kingpinDirX / kingpinLen : 0
+  const kpNy = kingpinLen > 1e-6 ? kingpinDirY / kingpinLen : 1
+  const kpNz = kingpinLen > 1e-6 ? kingpinDirZ / kingpinLen : 0
+
+  // ── Stub axle direction — perpendicular to kingpin axis, pointing outboard ──
+  // Project the outboard lateral direction onto the plane perpendicular to the
+  // kingpin axis. This gives the physically correct stub direction that lies in
+  // the upright plane (containing kingpin and hub).
+  //   stub = lateral - (lateral · kingpin) * kingpin
+  const dotLK = sideSign * kpNx
+  let stubDirX = sideSign - dotLK * kpNx  // sideSign * (1 - kpNx²)
+  let stubDirY = -dotLK * kpNy             // -sideSign * kpNx * kpNy
+  let stubDirZ = -dotLK * kpNz             // -sideSign * kpNx * kpNz
+  let stubLen = Math.sqrt(stubDirX * stubDirX + stubDirY * stubDirY + stubDirZ * stubDirZ)
+  if (stubLen < 1e-6) {
+    // Degenerate: kingpin is horizontal pointing outboard — fall back
+    stubDirX = 0; stubDirY = 1; stubDirZ = 0; stubLen = 1
+  }
+  stubDirX /= stubLen; stubDirY /= stubLen; stubDirZ /= stubLen
+
+  // ── Rotate stub axle around kingpin axis by steering angle (Rodrigues' formula) ──
+  const steerRad = (steerAngle * Math.PI) / 180
+  if (Math.abs(steerRad) > 1e-6) {
+    const cosS = Math.cos(steerRad)
+    const sinS = Math.sin(steerRad)
+    const dotKS = kpNx * stubDirX + kpNy * stubDirY + kpNz * stubDirZ
+    // v_rot = v*cos(θ) + (k×v)*sin(θ) + k*(k·v)*(1-cos(θ))
+    const crossX = kpNy * stubDirZ - kpNz * stubDirY
+    const crossY = kpNz * stubDirX - kpNx * stubDirZ
+    const crossZ = kpNx * stubDirY - kpNy * stubDirX
+    stubDirX = stubDirX * cosS + crossX * sinS + kpNx * dotKS * (1 - cosS)
+    stubDirY = stubDirY * cosS + crossY * sinS + kpNy * dotKS * (1 - cosS)
+    stubDirZ = stubDirZ * cosS + crossZ * sinS + kpNz * dotKS * (1 - cosS)
+  }
+
+  const hubOffset = geo.hubOffset ?? 0
 
   // Shock lower mount — between the two lower A-arm legs at damperAttachmentRatio
   // Interpolate along fore arm and aft arm separately, then take midpoint
@@ -263,28 +302,28 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const kingpinMidY = (outerLowerY + outerUpperY) / 2
   const kingpinMidZ = (outerLowerZ + outerUpperZ) / 2
 
-  // ── Stub axle — perpendicular to upright face (§3.4) ──
-  // Use dynamic caster from 3D solver instead of static caster angle
-  const dynamicCasterRad = (cornerState.dynamicCaster * Math.PI) / 180
-  const stubDirX = sideSign * Math.cos(uprightAngle) * Math.cos(dynamicCasterRad)
-  const stubDirY = Math.sin(uprightAngle)
-  const stubDirZ = -sideSign * Math.cos(uprightAngle) * Math.sin(dynamicCasterRad)
-  const hubOffset = geo.hubOffset ?? 0
+  // ── Wheel hub position — stub axle tip (steered) ──
   const wheelXActual = kingpinMidX + stubDirX * hubOffset
   const wheelYActual = kingpinMidY + stubDirY * hubOffset
   const wheelZActual = kingpinMidZ + stubDirZ * hubOffset
 
+  // ── Wheel Euler angles ──
+  // Camber and steering come from the kinematics solver (full 3D, accounts for
+  // KPI, caster-induced camber, bump steer, etc.).
+  // The caster pitch (side-view tilt of the wheel) is extracted from the steered
+  // stub direction — this is the small residual tilt perpendicular to the lateral axis.
+  const wheelCasterTiltDeg = Math.atan2(
+    stubDirZ, Math.sqrt(stubDirX * stubDirX + stubDirY * stubDirY)
+  ) * (180 / Math.PI)
+
   // ── Kingpin axis ground intercept (§3.3) ──
   // Extend the line from lower BJ through upper BJ to Y=0 (ground plane)
-  const kingpinDY = outerUpperY - outerLowerY
-  const kingpinDX = outerUpperX - outerLowerX
-  const kingpinDZ = outerUpperZ - outerLowerZ
   let kingpinGroundX = outerLowerX
   let kingpinGroundZ = outerLowerZ
-  if (Math.abs(kingpinDY) > 1e-6) {
-    const tGround = -outerLowerY / kingpinDY
-    kingpinGroundX = outerLowerX + tGround * kingpinDX
-    kingpinGroundZ = outerLowerZ + tGround * kingpinDZ
+  if (Math.abs(kingpinDirY) > 1e-6) {
+    const tGround = -outerLowerY / kingpinDirY
+    kingpinGroundX = outerLowerX + tGround * kingpinDirX
+    kingpinGroundZ = outerLowerZ + tGround * kingpinDirZ
   }
 
   // ── Contact patch with camber shift (§3.8) ──
@@ -296,7 +335,6 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   // ── Steering arm (§3.2, §3.11) ──
   const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
-  const steerRad = (steerAngle * Math.PI) / 180
   const armAngle = ackermannRestAngle + steerRad
   // A_ST origin is on the upright at lower ball joint height (per typical double-wishbone)
   const steeringArmBaseX = outerLowerX
@@ -308,13 +346,14 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   return (
     <group>
-      {/* Tyre — positioned at stub axle tip (hub) */}
+      {/* Tyre — positioned at stub axle tip (hub), oriented from solver + stub */}
       <WheelTyre
         position={[wheelXActual, wheelYActual, wheelZActual]}
         radius={tyreRadius}
         width={vehicle.tyreWidth}
         camber={-camber * sideSign}
         toe={(geo.staticToe + steerAngle) * sideSign}
+        caster={wheelCasterTiltDeg}
       />
 
       {/* Contact patch shadow on ground — shifted by camber (§3.8) */}
