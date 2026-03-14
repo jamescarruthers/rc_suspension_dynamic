@@ -160,7 +160,6 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   // Wheel position (independent of chassis rotation)
   const wheelY = cornerState.wheelPosition
-  const wheelX = sideSign * geo.trackWidth / 2
   const wheelZ = longitudinalOffset
 
   const tyreRadius = vehicle.tyreRadius
