@@ -137,6 +137,7 @@ export interface SimulationState {
   running: boolean;
   time: number;
   playbackSpeed: number;
+  physicsHz: number;
   // Sprung mass state
   chassisHeave: number;           // z_s
   chassisHeaveVelocity: number;   // v_s

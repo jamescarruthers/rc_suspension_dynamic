@@ -112,12 +112,11 @@ function App() {
     const frameTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05)
     lastTimeRef.current = timestamp
 
-    accumRef.current += frameTime * state.playbackSpeed
-    // RK4 is 4th-order accurate — can use larger timestep safely.
-    // Euler needs smaller steps for stability.
-    // Suspension natural freq ~30-50 Hz → period ~20-33ms; these dt values
-    // give 5-10 samples per oscillation period, well within stability limits.
-    const dt = 0.002
+    // dt derived from physicsHz; playbackSpeed scales dt so that slow motion
+    // runs the same number of steps per frame but advances sim time slower.
+    const baseDt = 1 / state.physicsHz
+    const dt = baseDt * state.playbackSpeed
+    accumRef.current += frameTime
     let steps = 0
     const maxStepsPerFrame = 200
 
@@ -135,7 +134,7 @@ function App() {
     // 1. Calling setState() every substep (200×/frame Zustand overhead)
     // 2. Re-reading stale state — each substep must use the previous step's output
     let localState = state as typeof state
-    while (accumRef.current >= dt && steps < maxStepsPerFrame) {
+    while (accumRef.current >= baseDt && steps < maxStepsPerFrame) {
       let newState: Partial<typeof state>
       if (useRapier && isRapierReady()) {
         newState = stepRapierSimulation(
@@ -200,7 +199,7 @@ function App() {
       }
       // Merge into local state for next substep (no store overhead)
       localState = { ...localState, ...newState } as typeof state
-      accumRef.current -= dt
+      accumRef.current -= baseDt
       steps++
     }
     // Push final state to store once per frame

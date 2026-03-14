@@ -67,6 +67,7 @@ function defaultSimulationState(): SimulationState {
     running: true,
     time: 0,
     playbackSpeed: 1,
+    physicsHz: 500,
     // Sprung mass state
     chassisHeave: 0,
     chassisHeaveVelocity: 0,
@@ -116,6 +117,7 @@ interface SimulationStore extends SimulationState {
   toggleRunning: () => void;
   reset: () => void;
   setPlaybackSpeed: (speed: number) => void;
+  setPhysicsHz: (hz: number) => void;
 
   // Input controls
   setRollInput: (degrees: number) => void;
@@ -164,16 +166,18 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   toggleRunning: () => set((state) => ({ running: !state.running })),
 
   reset: () => {
-    const { mode, physicsEngine } = get();
+    const { mode, physicsEngine, physicsHz } = get();
     set({
       ...defaultSimulationState(),
       mode,
       physicsEngine,
+      physicsHz,
       rapierNeedsRebuild: true,
     });
   },
 
   setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
+  setPhysicsHz: (hz) => set({ physicsHz: hz }),
 
   setRollInput: (degrees) => set({ rollInput: degrees }),
 
