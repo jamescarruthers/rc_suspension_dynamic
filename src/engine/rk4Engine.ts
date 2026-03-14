@@ -345,6 +345,7 @@ export function stepRK4Simulation(
       width: state.roadBumpWidth,
       speed: state.roadSpeed,
       frequency: state.roadFrequency,
+      targetCorner: state.roadTargetCorner as any,
     },
     cornerPos,
     newTime,
