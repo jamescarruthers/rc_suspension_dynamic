@@ -54,6 +54,8 @@ export interface SteeringRack {
   rackWidth: number;              // mm, lateral distance between left and right tie rod inner ends
   rackHeight: number;             // mm, height of rack axis above ground (absolute)
   rackForwardOffset: number;      // mm, longitudinal offset of rack from axle line (positive = forward)
+  steeringArmLength?: number;     // mm, kingpin to tie rod ball joint (optional; derived from rack geometry if omitted)
+  maxSteeringAngle?: number;      // degrees, maximum commanded steering angle (default 30)
 }
 
 // ─── Shock absorber ─────────────────────────────────────────────────
@@ -112,6 +114,7 @@ export interface PerCornerState {
   hydraulicPressure: number;
   camberAngle: number;
   steeringAngle: number;          // degrees, per-wheel after Ackermann
+  ackermannPercent: number;       // %, effective Ackermann percentage at current steering angle
   wheelAirborne: boolean;
   // Derived geometry (SAE J670 §3.3)
   dynamicKPI: number;             // degrees, kingpin inclination from ball joint positions

@@ -22,6 +22,7 @@ function defaultCornerState(wheelPosition: number = 42): PerCornerState {
     hydraulicPressure: 0,
     camberAngle: 0,
     steeringAngle: 0,
+    ackermannPercent: 0,
     wheelAirborne: false,
     dynamicKPI: 0,
     dynamicCaster: 0,

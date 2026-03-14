@@ -615,12 +615,14 @@ export function computeSteeringGeometry(
   const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
   const armAngleRest = Math.atan2(kingpinHalfTrack, wheelbase);
 
-  // Arm length: arm tip lateral == rack inner end lateral
+  // Arm length: use explicit value if provided, otherwise derive from rack geometry
   const cosRest = Math.cos(armAngleRest);
-  const armLength = Math.max((kingpinHalfTrack - rack.rackWidth / 2) / (cosRest || 1), 1);
+  const armLength = rack.steeringArmLength != null
+    ? Math.max(rack.steeringArmLength, 1)
+    : Math.max((kingpinHalfTrack - rack.rackWidth / 2) / (cosRest || 1), 1);
 
   // Arm tip at rest
-  const armTipLateral = kingpinHalfTrack - armLength * cosRest; // ≈ rackWidth/2
+  const armTipLateral = kingpinHalfTrack - armLength * cosRest;
   const armTipLong = -armLength * Math.sin(armAngleRest);
 
   // Height difference between rack and arm tip (lower ball joint)
@@ -834,6 +836,79 @@ export function computeAckermannSteering(
     leftAngle: radToDeg(leftArmAngle - armAngleRad),
     rightAngle: radToDeg(rightArmAngle - armAngleRad),
   };
+}
+
+// ─── Caster/KPI-induced camber gain during steering (§8 trade-offs) ──
+
+/**
+ * Compute the camber change caused by steering about an inclined kingpin axis.
+ *
+ * When the wheel is steered through angle δ about a kingpin with caster and KPI:
+ *   Δcamber_outside = −caster × sin(δ) + KPI × (1 − cos(δ))
+ *
+ * Caster produces beneficial negative camber on the outside wheel (leaning
+ * into the turn). KPI produces detrimental positive camber on both wheels.
+ * At RC scale, caster is dominant and KPI is kept low to minimise the
+ * positive-camber penalty.
+ *
+ * @param steeringAngleDeg  Per-wheel steering angle in degrees (positive = turning)
+ * @param casterDeg         Dynamic caster angle in degrees
+ * @param kpiDeg            Dynamic KPI angle in degrees
+ * @returns Camber change in degrees (negative = top of wheel tilts inward)
+ */
+export function computeSteeringCamberGain(
+  steeringAngleDeg: number,
+  casterDeg: number,
+  kpiDeg: number,
+): number {
+  const steerRad = degToRad(steeringAngleDeg);
+  const casterRad = degToRad(casterDeg);
+  const kpiRad = degToRad(kpiDeg);
+  // Caster contribution: outside wheel gains negative camber (beneficial)
+  // Sign: positive steering angle → negative camber change (lean into turn)
+  const casterCamber = -casterRad * Math.sin(steerRad);
+  // KPI contribution: both wheels gain positive camber (detrimental)
+  const kpiCamber = kpiRad * (1 - Math.cos(steerRad));
+  return radToDeg(casterCamber + kpiCamber);
+}
+
+// ─── Ackermann percentage diagnostic (§1) ────────────────────────────
+
+/**
+ * Compute the Ackermann percentage for a given pair of actual wheel angles.
+ *
+ *   Ackermann % = (δo_parallel − δo_actual) / (δo_parallel − δo_ideal) × 100
+ *
+ * where δo_parallel = δi (both wheels same angle) and δo_ideal satisfies the
+ * ideal Ackermann condition: cot(δo) − cot(δi) = t / L.
+ *
+ * Returns NaN when the inner angle is near zero (undefined).
+ */
+export function computeAckermannPercent(
+  innerAngleDeg: number,
+  outerAngleDeg: number,
+  trackWidth: number,
+  wheelbase: number,
+): number {
+  if (Math.abs(innerAngleDeg) < 0.5) return NaN;
+
+  const innerRad = degToRad(Math.abs(innerAngleDeg));
+  const outerActual = Math.abs(outerAngleDeg);
+
+  // Ideal outer angle from Ackermann condition
+  const idealOuterRad = Math.atan2(
+    2 * wheelbase * Math.sin(innerRad),
+    2 * wheelbase * Math.cos(innerRad) + trackWidth * Math.sin(innerRad),
+  );
+  const idealOuter = radToDeg(idealOuterRad);
+
+  // Parallel steering: both wheels at inner angle
+  const parallel = Math.abs(innerAngleDeg);
+
+  const denom = parallel - idealOuter;
+  if (Math.abs(denom) < 1e-6) return 100; // already at ideal
+
+  return ((parallel - outerActual) / denom) * 100;
 }
 
 // ─── Combined kinematics update ─────────────────────────────────────

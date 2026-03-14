@@ -6,6 +6,7 @@ import { SuspensionAssembly } from './SuspensionAssembly'
 import { ForceArrows } from './ForceArrows'
 import { PerfStatsContext } from '../../App'
 import { useSimulationStore } from '../../store/useSimulationStore'
+import { useVehicleStore } from '../../store/useVehicleStore'
 
 function PerfStatsOverlay() {
   const stats = useContext(PerfStatsContext)
@@ -54,6 +55,7 @@ export function Viewport() {
 function SteeringOverlay() {
   const frontSteer = useSimulationStore((s) => s.frontSteeringAngle)
   const setFrontSteer = useSimulationStore((s) => s.setFrontSteeringAngle)
+  const frontMaxSteer = useVehicleStore((s) => s.frontSteeringRack.maxSteeringAngle ?? 30)
 
   const onInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setFrontSteer(Number(e.target.value))
@@ -68,8 +70,8 @@ function SteeringOverlay() {
       <span className="text-[9px] font-mono text-[#556677] select-none">STEER</span>
       <input
         type="range"
-        min={-30}
-        max={30}
+        min={-frontMaxSteer}
+        max={frontMaxSteer}
         step={0.5}
         value={frontSteer}
         onChange={onInput}

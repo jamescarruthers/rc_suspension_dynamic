@@ -1,4 +1,5 @@
 import { useSimulationStore } from '../../store/useSimulationStore'
+import { useVehicleStore } from '../../store/useVehicleStore'
 import { ParamSlider } from '../params/ParamSlider'
 
 export function SteeringInput() {
@@ -6,12 +7,14 @@ export function SteeringInput() {
   const setFrontSteer = useSimulationStore((s) => s.setFrontSteeringAngle)
   const rearSteer = useSimulationStore((s) => s.rearSteeringAngle)
   const setRearSteer = useSimulationStore((s) => s.setRearSteeringAngle)
+  const frontMaxSteer = useVehicleStore((s) => s.frontSteeringRack.maxSteeringAngle ?? 30)
+  const rearMaxSteer = useVehicleStore((s) => s.rearSteeringRack.maxSteeringAngle ?? 10)
 
   return (
     <div className="space-y-1">
       <div className="text-[9px] text-[#556677] font-[var(--font-mono)]">STEERING INPUT</div>
-      <ParamSlider label="Front Steering" value={frontSteer} min={-30} max={30} step={0.5} unit="°" onChange={setFrontSteer} />
-      <ParamSlider label="Rear Steering" value={rearSteer} min={-10} max={10} step={0.5} unit="°" onChange={setRearSteer} />
+      <ParamSlider label="Front Steering" value={frontSteer} min={-frontMaxSteer} max={frontMaxSteer} step={0.5} unit="°" onChange={setFrontSteer} />
+      <ParamSlider label="Rear Steering" value={rearSteer} min={-rearMaxSteer} max={rearMaxSteer} step={0.5} unit="°" onChange={setRearSteer} />
     </div>
   )
 }

@@ -17,12 +17,12 @@ export const vehicle: VehicleParams = {
   unsprungMassPerCorner: 40,
   tyreSpringRate: 60,
   tyreDamping: 0.03,
-  tyreRadius: 35,
-  tyreWidth: 35,
+  tyreRadius: 27,
+  tyreWidth: 30,
 };
 
 export const frontGeometry: AxleGeometry = {
-  trackWidth: 249,
+  trackWidth: 238,
   lowerWishboneRatio: 0.42,
   upperArmLengthRatio: 0.50,
   lowerArmAngle: 0,
@@ -42,7 +42,7 @@ export const frontGeometry: AxleGeometry = {
 };
 
 export const rearGeometry: AxleGeometry = {
-  trackWidth: 249,
+  trackWidth: 242,
   lowerWishboneRatio: 0.44,
   upperArmLengthRatio: 0.45,
   lowerArmAngle: 1.5,
@@ -99,14 +99,16 @@ export const frontSteeringRack: SteeringRack = {
   rackWidth: 162,
   rackHeight: 15,
   rackForwardOffset: 12,
-
+  steeringArmLength: 16,
+  maxSteeringAngle: 40,
 };
 
 export const rearSteeringRack: SteeringRack = {
   rackWidth: 162,
   rackHeight: 15,
   rackForwardOffset: -8,
-
+  steeringArmLength: 16,
+  maxSteeringAngle: 10,
 };
 
 export const hydraulic: HydraulicConfig = {
