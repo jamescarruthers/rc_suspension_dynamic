@@ -109,7 +109,7 @@ function App() {
     // Euler needs smaller steps for stability.
     // Suspension natural freq ~30-50 Hz → period ~20-33ms; these dt values
     // give 5-10 samples per oscillation period, well within stability limits.
-    const dt = state.physicsEngine === 'rk4' ? 0.004 : 0.002
+    const dt = 0.002
     let steps = 0
     const maxStepsPerFrame = 200
 
