@@ -201,7 +201,7 @@ function App() {
       </div>
       {/* Mobile layout */}
       <div className="flex md:hidden flex-1 flex-col min-h-0">
-        <div className={`flex-1 min-h-0 ${mobileTab === 'viewport' ? '' : 'hidden'}`}>
+        <div className={`flex-1 min-h-0 flex flex-col ${mobileTab === 'viewport' ? '' : 'hidden'}`}>
           <Viewport />
         </div>
         <div className={`flex-1 min-h-0 overflow-y-auto ${mobileTab === 'params' ? '' : 'hidden'}`}>
