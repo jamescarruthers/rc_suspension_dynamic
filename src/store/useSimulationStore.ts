@@ -89,14 +89,14 @@ function defaultSimulationState(): SimulationState {
     dropRollAngle: 0,
     dropPitchAngle: 0,
     // Road surface
-    roadSurfaceType: 'speedBump',
+    roadSurfaceType: 'singleBump',
     roadBumpHeight: 10,
     roadBumpWidth: 30,
     roadBumpShape: 'half-sine',
     roadSpeed: 1000,
-    roadFrequency: 10,
+    roadFrequency: 1,
     roadAmplitude: 5,
-    roadTargetCorner: 'all',
+    roadTargetCorner: 'FL',
     // Force arrow visibility
     forceVisibility: defaultForceVisibility(),
     forceScale: 1,
