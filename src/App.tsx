@@ -7,7 +7,7 @@ import { MobileTabBar } from './components/layout/MobileTabBar'
 import { Viewport } from './components/viewport/Scene'
 import { useSimulationStore } from './store/useSimulationStore'
 import { useVehicleStore } from './store/useVehicleStore'
-import { stepSimulation, findStaticEquilibrium } from './engine/integration'
+import { stepSimulation, findStaticEquilibrium, type StepFunction } from './engine/integration'
 import { stepRK4Simulation } from './engine/rk4Engine'
 import { initRK4Wasm, isRK4WasmReady, stepRK4WasmSimulation } from './engine/rk4WasmEngine'
 import './engine/benchmark' // registers window.benchmarkRK4()
@@ -44,6 +44,7 @@ function App() {
   const lastTimeRef = useRef<number>(0)
   const accumRef = useRef<number>(0)
   const prevEngineRef = useRef<string>('rk4')
+  const prevHzRef = useRef<number>(500)
   const [mobileTab, setMobileTab] = useState<MobileTab>('viewport')
 
   // Performance stats tracking
@@ -67,8 +68,20 @@ function App() {
     initRK4Wasm().catch(console.error)
   }, [])
 
-  // Find static equilibrium on mount and when params change
+  // Resolve which step function the runtime is currently using
+  const getStepFn = useCallback((): StepFunction => {
+    const state = useSimulationStore.getState()
+    if (state.physicsEngine === 'rk4-wasm' && isRK4WasmReady()) return stepRK4WasmSimulation
+    if (state.physicsEngine === 'rk4' || state.physicsEngine === 'rk4-wasm') return stepRK4Simulation
+    // Euler fallback (also used for rapier equilibrium since rapier has no
+    // pure-state step function)
+    return stepSimulation
+  }, [])
+
+  // Find static equilibrium on mount
   useEffect(() => {
+    const state = useSimulationStore.getState()
+    prevHzRef.current = state.physicsHz
     const eqState = findStaticEquilibrium(
       vehicle.vehicle,
       vehicle.frontGeometry,
@@ -79,7 +92,10 @@ function App() {
       vehicle.rearSwayBar,
       vehicle.frontSteeringRack,
       vehicle.rearSteeringRack,
-      vehicle.hydraulic
+      vehicle.hydraulic,
+      5000,
+      getStepFn(),
+      state.physicsHz,
     )
     sim.updateState(eqState)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,6 +105,12 @@ function App() {
     const state = useSimulationStore.getState()
     const veh = useVehicleStore.getState()
     const useRapier = state.physicsEngine === 'rapier'
+
+    // Handle physicsHz change: reset accumulator to prevent burst stepping
+    if (state.physicsHz !== prevHzRef.current) {
+      prevHzRef.current = state.physicsHz
+      accumRef.current = 0
+    }
 
     // Handle engine switch: rebuild Rapier world or clean up
     if (state.physicsEngine !== prevEngineRef.current) {
