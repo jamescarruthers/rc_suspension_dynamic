@@ -23,6 +23,13 @@ function defaultCornerState(wheelPosition: number = 42): PerCornerState {
     camberAngle: 0,
     steeringAngle: 0,
     wheelAirborne: false,
+    dynamicKPI: 0,
+    dynamicCaster: 0,
+    scrubRadius: 0,
+    casterTrail: 0,
+    motionRatio: 0,
+    lowerBJPosition: { lateral: 0, vertical: 0, longitudinal: 0 },
+    upperBJPosition: { lateral: 0, vertical: 0, longitudinal: 0 },
   };
 }
 

@@ -21,7 +21,6 @@ import {
   cross,
   length,
   normalize,
-  rotateAroundAxis,
   closestPointOnLine,
   lineIntersection2D,
   degToRad,
@@ -84,7 +83,7 @@ export interface InnerPivots3D {
  */
 export function compute3DInnerPivots(
   geo: AxleGeometry,
-  rideHeight: number,
+  _rideHeight: number,
   tyreRadius: number,
 ): InnerPivots3D {
   const { lowerLen, upperLen } = armLengths(geo);
@@ -236,7 +235,7 @@ export function solve3DCoupledBallJoints(
   lowerBJ: Vector3;
   upperBJ: Vector3;
 } {
-  const { lowerLen, upperLen } = armLengths(geo);
+  const { lowerLen } = armLengths(geo);
   const staticBJs = computeStaticBallJoints3D(geo, tyreRadius);
   const pivots = compute3DInnerPivots(geo, rideHeight, tyreRadius);
 
@@ -330,7 +329,6 @@ export function solve3DCoupledBallJoints(
   const Qe1 = dot(upperRadial, Q);
   const Qe2 = dot(upperTangent, Q);
   const QdotAxis = dot(pivots.upperAxis, Q);
-  const Q_plane_sq = dot(Q, Q) - QdotAxis * QdotAxis; // |Q projected onto arc plane|²
   const Q_total_sq = dot(Q, Q);
 
   const R_u = upperArcRadius;
@@ -564,7 +562,7 @@ export function computeCasterTrail(
 export function computeGeometricMotionRatio(
   shock: AxleShock,
   geo: AxleGeometry,
-  rideHeight: number,
+  _rideHeight: number,
   tyreRadius: number,
   shockCompression: number,
 ): number {
