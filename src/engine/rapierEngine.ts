@@ -542,6 +542,7 @@ export function findRapierStaticEquilibrium(
     running: false,
     time: 0,
     playbackSpeed: 1,
+    physicsHz: 500,
     chassisHeave: 0,
     chassisHeaveVelocity: 0,
     rollAngle: 0,
