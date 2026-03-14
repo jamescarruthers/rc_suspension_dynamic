@@ -112,11 +112,11 @@ function App() {
     const frameTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05)
     lastTimeRef.current = timestamp
 
-    // dt derived from physicsHz; playbackSpeed scales dt so that slow motion
-    // runs the same number of steps per frame but advances sim time slower.
-    const baseDt = 1 / state.physicsHz
-    const dt = baseDt * state.playbackSpeed
-    accumRef.current += frameTime
+    // Fixed physics timestep from physicsHz; playbackSpeed scales the
+    // accumulator so we run more/fewer steps per frame while keeping dt
+    // constant (preserves numerical stability of RK4 integration).
+    const dt = 1 / state.physicsHz
+    accumRef.current += frameTime * state.playbackSpeed
     let steps = 0
     const maxStepsPerFrame = 200
 
@@ -134,7 +134,8 @@ function App() {
     // 1. Calling setState() every substep (200×/frame Zustand overhead)
     // 2. Re-reading stale state — each substep must use the previous step's output
     let localState = state as typeof state
-    while (accumRef.current >= baseDt && steps < maxStepsPerFrame) {
+    let prevLocalState = localState
+    while (accumRef.current >= dt && steps < maxStepsPerFrame) {
       let newState: Partial<typeof state>
       if (useRapier && isRapierReady()) {
         newState = stepRapierSimulation(
@@ -198,13 +199,50 @@ function App() {
         )
       }
       // Merge into local state for next substep (no store overhead)
+      prevLocalState = localState
       localState = { ...localState, ...newState } as typeof state
-      accumRef.current -= baseDt
+      accumRef.current -= dt
       steps++
     }
-    // Push final state to store once per frame
+    // Interpolate between last two physics states for smooth rendering.
+    // alpha represents how far we are between the last step and the next;
+    // without this, the variable step count per frame (e.g. 8 vs 9 at
+    // 500Hz/60fps) causes visible stuttering.
     if (steps > 0) {
-      useSimulationStore.setState(localState)
+      const alpha = accumRef.current / dt
+      const lerp = (a: number, b: number) => a + alpha * (b - a)
+      const lerpCorner = (prev: typeof localState.corners.FL, curr: typeof localState.corners.FL) => ({
+        ...curr,
+        wheelPosition: lerp(prev.wheelPosition, curr.wheelPosition),
+        suspensionCompression: lerp(prev.suspensionCompression, curr.suspensionCompression),
+        shockCompression: lerp(prev.shockCompression, curr.shockCompression),
+        tyreDeflection: lerp(prev.tyreDeflection, curr.tyreDeflection),
+        camberAngle: lerp(prev.camberAngle, curr.camberAngle),
+        steeringAngle: lerp(prev.steeringAngle, curr.steeringAngle),
+        lowerBJPosition: {
+          lateral: lerp(prev.lowerBJPosition.lateral, curr.lowerBJPosition.lateral),
+          vertical: lerp(prev.lowerBJPosition.vertical, curr.lowerBJPosition.vertical),
+          longitudinal: lerp(prev.lowerBJPosition.longitudinal, curr.lowerBJPosition.longitudinal),
+        },
+        upperBJPosition: {
+          lateral: lerp(prev.upperBJPosition.lateral, curr.upperBJPosition.lateral),
+          vertical: lerp(prev.upperBJPosition.vertical, curr.upperBJPosition.vertical),
+          longitudinal: lerp(prev.upperBJPosition.longitudinal, curr.upperBJPosition.longitudinal),
+        },
+      })
+      const renderState = {
+        ...localState,
+        chassisHeave: lerp(prevLocalState.chassisHeave, localState.chassisHeave),
+        rollAngle: lerp(prevLocalState.rollAngle, localState.rollAngle),
+        pitchAngle: lerp(prevLocalState.pitchAngle, localState.pitchAngle),
+        corners: {
+          FL: lerpCorner(prevLocalState.corners.FL, localState.corners.FL),
+          FR: lerpCorner(prevLocalState.corners.FR, localState.corners.FR),
+          RL: lerpCorner(prevLocalState.corners.RL, localState.corners.RL),
+          RR: lerpCorner(prevLocalState.corners.RR, localState.corners.RR),
+        },
+      }
+      useSimulationStore.setState(renderState)
     }
 
     // Update performance counters
