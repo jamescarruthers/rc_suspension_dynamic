@@ -28,7 +28,8 @@ export function AxleGeometryParams({ axle }: AxleGeometryParamsProps) {
         <ParamSlider label="Lower Arm Angle" value={geometry.lowerArmAngle} min={-15} max={15} step={0.5} unit="°" onChange={(v) => update('lowerArmAngle', v)} />
         <ParamSlider label="Upper Arm Angle" value={geometry.upperArmAngle} min={-15} max={15} step={0.5} unit="°" onChange={(v) => update('upperArmAngle', v)} />
         <ParamSlider label="Upright Height" value={geometry.uprightHeight} min={5} max={40} step={0.5} unit="mm" onChange={(v) => update('uprightHeight', v)} />
-        <ParamSlider label="Pivot Spread" value={geometry.innerPivotSpread} min={15} max={50} unit="mm" onChange={(v) => update('innerPivotSpread', v)} />
+        <ParamSlider label="Lower Pivot Spread" value={geometry.innerPivotSpread} min={15} max={50} unit="mm" onChange={(v) => update('innerPivotSpread', v)} />
+        <ParamSlider label="Upper Pivot Spread" value={geometry.upperInnerPivotSpread} min={10} max={50} unit="mm" onChange={(v) => update('upperInnerPivotSpread', v)} />
         <ParamSlider label="Hub Offset" value={geometry.hubOffset} min={0} max={20} step={0.5} unit="mm" onChange={(v) => update('hubOffset', v)} />
         {(isFront || geometry.kpiAngle > 0) && (
           <ParamSlider label="KPI" value={geometry.kpiAngle} min={0} max={15} step={0.5} unit="°" onChange={(v) => update('kpiAngle', v)} />

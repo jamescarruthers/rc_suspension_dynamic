@@ -201,22 +201,19 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // Anti-dive/anti-squat: fore/aft inner pivots at different heights (§3.1, §4.4)
   const sideViewAngleDeg = geo.antiDive || geo.antiSquat || 0
   const sideViewAngleRad = (sideViewAngleDeg * Math.PI) / 180
-  const halfSpread = geo.innerPivotSpread / 2
-  const heightDiffHalf = halfSpread * Math.tan(sideViewAngleRad)
+  const lowerHalfSpread = geo.innerPivotSpread / 2
+  const lowerHeightDiffHalf = lowerHalfSpread * Math.tan(sideViewAngleRad)
 
-  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
-  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
+  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal + lowerHeightDiffHalf, longitudinalOffset + lowerHalfSpread)
+  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal - lowerHeightDiffHalf, longitudinalOffset - lowerHalfSpread)
 
-  // Upper arm inner pivot — also inclined by anti-dive/anti-squat
+  // Upper arm A-shape — separate pivot spread (§3.1)
+  const upperHalfSpread = (geo.upperInnerPivotSpread ?? geo.innerPivotSpread) / 2
+  const upperHeightDiffHalf = upperHalfSpread * Math.tan(sideViewAngleRad)
+
   const innerUpperXLocal = sideSign * (kingpinHalfTrack - upperArmLength)
-  const innerPivotUpperFore = rot(innerUpperXLocal, innerUpperYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
-  const innerPivotUpperAft = rot(innerUpperXLocal, innerUpperYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
-  // Midpoint for arm drawing
-  const innerPivotUpper: [number, number, number] = [
-    (innerPivotUpperFore[0] + innerPivotUpperAft[0]) / 2,
-    (innerPivotUpperFore[1] + innerPivotUpperAft[1]) / 2,
-    (innerPivotUpperFore[2] + innerPivotUpperAft[2]) / 2,
-  ]
+  const innerPivotUpperFore = rot(innerUpperXLocal, innerUpperYLocal + upperHeightDiffHalf, longitudinalOffset + upperHalfSpread)
+  const innerPivotUpperAft = rot(innerUpperXLocal, innerUpperYLocal - upperHeightDiffHalf, longitudinalOffset - upperHalfSpread)
 
   // Shock tower — derived from static lower mount position + shock vector
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
@@ -334,10 +331,18 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         lineWidth={2}
       />
 
-      {/* Upper arm (§3.1) */}
+      {/* Upper wishbone - A-shape (§3.1) */}
       <Line
         points={[
-          innerPivotUpper,
+          innerPivotUpperFore,
+          [outerUpperX, outerUpperY, outerUpperZ],
+        ]}
+        color={LIGHT_CYAN}
+        lineWidth={1.5}
+      />
+      <Line
+        points={[
+          innerPivotUpperAft,
           [outerUpperX, outerUpperY, outerUpperZ],
         ]}
         color={LIGHT_CYAN}
@@ -407,7 +412,8 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       <JointSphere position={innerPivotLowerFore} />
       <JointSphere position={innerPivotLowerAft} />
       <JointSphere position={[outerLowerX, outerLowerY, outerLowerZ]} />
-      <JointSphere position={innerPivotUpper} color={LIGHT_CYAN} />
+      <JointSphere position={innerPivotUpperFore} color={LIGHT_CYAN} />
+      <JointSphere position={innerPivotUpperAft} color={LIGHT_CYAN} />
       <JointSphere position={[outerUpperX, outerUpperY, outerUpperZ]} color={LIGHT_CYAN} />
 
       {/* Steering arm — integral to upright, extends to A_ST (tie rod outer end) (§3.2, §3.11) */}
