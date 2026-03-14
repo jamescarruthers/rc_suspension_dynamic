@@ -54,7 +54,6 @@ export interface SteeringRack {
   rackWidth: number;              // mm, lateral distance between left and right tie rod inner ends
   rackHeight: number;             // mm, height of rack axis above ground (absolute)
   rackForwardOffset: number;      // mm, longitudinal offset of rack from axle line (positive = forward)
-  tieRodLength: number;           // mm, length of each tie rod (inner ball joint to outer ball joint)
 }
 
 // ─── Shock absorber ─────────────────────────────────────────────────

@@ -99,14 +99,14 @@ export const frontSteeringRack: SteeringRack = {
   rackWidth: 40,
   rackHeight: 10,
   rackForwardOffset: 10,
-  tieRodLength: 38,
+
 };
 
 export const rearSteeringRack: SteeringRack = {
   rackWidth: 40,
   rackHeight: 10,
   rackForwardOffset: -8,
-  tieRodLength: 38,
+
 };
 
 export const hydraulic: HydraulicConfig = {

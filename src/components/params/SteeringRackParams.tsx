@@ -25,7 +25,6 @@ export function SteeringRackParams({ axle }: SteeringRackParamsProps) {
         <ParamSlider label="Rack Width" value={rack.rackWidth} min={20} max={120} step={1} unit="mm" onChange={(v) => update('rackWidth', v)} />
         <ParamSlider label="Rack Height" value={rack.rackHeight} min={5} max={50} step={0.5} unit="mm" onChange={(v) => update('rackHeight', v)} />
         <ParamSlider label="Forward Offset" value={rack.rackForwardOffset} min={-30} max={30} step={0.5} unit="mm" onChange={(v) => update('rackForwardOffset', v)} />
-        <ParamSlider label="Tie Rod Length" value={rack.tieRodLength} min={20} max={120} step={1} unit="mm" onChange={(v) => update('tieRodLength', v)} />
       </div>
     </CollapsibleSection>
   )
