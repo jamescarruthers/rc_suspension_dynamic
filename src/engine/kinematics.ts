@@ -648,8 +648,8 @@ export function computeRackSteering(
   // In plan view, it points toward the rear axle centre at angle armAngleRest.
   // Lateral: kingpinHalfTrack - ackermannArmLength * cos(armAngleRest)
   // Longitudinal: -ackermannArmLength * sin(armAngleRest) (rearward)
-  const armTipLateralRest = kingpinHalfTrack - geo.ackermannArmLength * Math.cos(armAngleRest);
-  const armTipLongitudinalRest = -geo.ackermannArmLength * Math.sin(armAngleRest);
+  // armTipLateral = kingpinHalfTrack - ackermannArmLength * cos(armAngleRest)
+  // armTipLongitudinal = -ackermannArmLength * sin(armAngleRest)
 
   // Steering arm tip height = lower ball joint height (approximation at ride height)
   // The tie rod inner end is at rack height. Arm tip is at lower BJ height.
@@ -657,7 +657,7 @@ export function computeRackSteering(
 
   // Solve each side: find steer angle φ such that the distance from
   // the displaced rack inner end to the steered arm tip equals tieRodLength.
-  const solveSteerAngle = (innerLateral: number, sideSign: number): number => {
+  const solveSteerAngle = (innerLateral: number, _sideSign: number): number => {
     // Rack inner end position (unsigned lateral, height, longitudinal)
     const rackX = innerLateral;       // lateral (unsigned, from centreline)
     const rackZ = rack.rackForwardOffset;  // longitudinal offset from axle
