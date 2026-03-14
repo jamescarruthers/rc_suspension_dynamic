@@ -113,17 +113,20 @@ export function compute3DInnerPivots(
   // Height difference between fore and aft pivots from side-view angle
   // tan(sideViewAngle) = heightDiff / (spread/2)
   // So total height diff across the full spread = spread * tan(sideViewAngle)
-  const halfSpread = geo.innerPivotSpread / 2;
-  const heightDiffHalf = halfSpread * Math.tan(sideViewAngle);
+  const lowerHalfSpread = geo.innerPivotSpread / 2;
+  const lowerHeightDiffHalf = lowerHalfSpread * Math.tan(sideViewAngle);
+
+  const upperHalfSpread = (geo.upperInnerPivotSpread ?? geo.innerPivotSpread) / 2;
+  const upperHeightDiffHalf = upperHalfSpread * Math.tan(sideViewAngle);
 
   // Fore pivot is higher (positive antiDive: axis slopes down toward rear)
   // Lower wishbone
-  const lowerFore = vec3(lowerInnerY, lowerInnerZ + heightDiffHalf, halfSpread);
-  const lowerAft = vec3(lowerInnerY, lowerInnerZ - heightDiffHalf, -halfSpread);
+  const lowerFore = vec3(lowerInnerY, lowerInnerZ + lowerHeightDiffHalf, lowerHalfSpread);
+  const lowerAft = vec3(lowerInnerY, lowerInnerZ - lowerHeightDiffHalf, -lowerHalfSpread);
 
-  // Upper wishbone — same side-view inclination
-  const upperFore = vec3(upperInnerY, upperInnerZ + heightDiffHalf, halfSpread);
-  const upperAft = vec3(upperInnerY, upperInnerZ - heightDiffHalf, -halfSpread);
+  // Upper wishbone — separate pivot spread, same side-view inclination
+  const upperFore = vec3(upperInnerY, upperInnerZ + upperHeightDiffHalf, upperHalfSpread);
+  const upperAft = vec3(upperInnerY, upperInnerZ - upperHeightDiffHalf, -upperHalfSpread);
 
   const lowerAxis = normalize(sub(lowerAft, lowerFore));
   const upperAxis = normalize(sub(upperAft, upperFore));

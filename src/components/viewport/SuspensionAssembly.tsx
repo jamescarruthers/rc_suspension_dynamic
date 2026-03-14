@@ -201,22 +201,33 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // Anti-dive/anti-squat: fore/aft inner pivots at different heights (§3.1, §4.4)
   const sideViewAngleDeg = geo.antiDive || geo.antiSquat || 0
   const sideViewAngleRad = (sideViewAngleDeg * Math.PI) / 180
-  const halfSpread = geo.innerPivotSpread / 2
-  const heightDiffHalf = halfSpread * Math.tan(sideViewAngleRad)
+  const lowerHalfSpread = geo.innerPivotSpread / 2
+  const lowerHeightDiffHalf = lowerHalfSpread * Math.tan(sideViewAngleRad)
 
-  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
-  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
+  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal + lowerHeightDiffHalf, longitudinalOffset + lowerHalfSpread)
+  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal - lowerHeightDiffHalf, longitudinalOffset - lowerHalfSpread)
 
-  // Upper arm inner pivot — also inclined by anti-dive/anti-squat
+  // Upper arm A-shape — separate pivot spread (§3.1)
+  const upperHalfSpread = (geo.upperInnerPivotSpread ?? geo.innerPivotSpread) / 2
+  const upperHeightDiffHalf = upperHalfSpread * Math.tan(sideViewAngleRad)
+
   const innerUpperXLocal = sideSign * (kingpinHalfTrack - upperArmLength)
-  const innerPivotUpperFore = rot(innerUpperXLocal, innerUpperYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
-  const innerPivotUpperAft = rot(innerUpperXLocal, innerUpperYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
-  // Midpoint for arm drawing
-  const innerPivotUpper: [number, number, number] = [
-    (innerPivotUpperFore[0] + innerPivotUpperAft[0]) / 2,
-    (innerPivotUpperFore[1] + innerPivotUpperAft[1]) / 2,
-    (innerPivotUpperFore[2] + innerPivotUpperAft[2]) / 2,
-  ]
+  const innerPivotUpperFore = rot(innerUpperXLocal, innerUpperYLocal + upperHeightDiffHalf, longitudinalOffset + upperHalfSpread)
+  const innerPivotUpperAft = rot(innerUpperXLocal, innerUpperYLocal - upperHeightDiffHalf, longitudinalOffset - upperHalfSpread)
+
+  // ── Outer (kingpin-end) width for wishbone trapezoid shape ──
+  // Bushing connection stays horizontal — fore/aft offset from BJ at same height
+  const outerWidthRatio = geo.wishboneOuterWidthRatio ?? 0.35
+  const lowerOuterHalfWidth = (geo.innerPivotSpread * outerWidthRatio) / 2
+  const upperOuterHalfWidth = ((geo.upperInnerPivotSpread ?? geo.innerPivotSpread) * outerWidthRatio) / 2
+
+  // Lower outer fore/aft — horizontal bushing at ball joint height
+  const outerLowerFore: [number, number, number] = [outerLowerX, outerLowerY, outerLowerZ + lowerOuterHalfWidth]
+  const outerLowerAft: [number, number, number] = [outerLowerX, outerLowerY, outerLowerZ - lowerOuterHalfWidth]
+
+  // Upper outer fore/aft — horizontal bushing at ball joint height
+  const outerUpperFore: [number, number, number] = [outerUpperX, outerUpperY, outerUpperZ + upperOuterHalfWidth]
+  const outerUpperAft: [number, number, number] = [outerUpperX, outerUpperY, outerUpperZ - upperOuterHalfWidth]
 
   // Shock tower — derived from static lower mount position + shock vector
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
@@ -234,11 +245,22 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const camberChangeRad = ((camber - geo.staticCamber) * Math.PI) / 180
   const uprightAngle = kpiRad - camberChangeRad
 
-  // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
+  // Shock lower mount — between the two lower A-arm legs at damperAttachmentRatio
+  // Interpolate along fore arm and aft arm separately, then take midpoint
   const frac = shock.damperAttachmentRatio
-  const shockLowerX = innerPivotLowerFore[0] + (outerLowerX - innerPivotLowerFore[0]) * frac
-  const shockLowerY = innerPivotLowerFore[1] + (outerLowerY - innerPivotLowerFore[1]) * frac
-  const shockLowerZ = innerPivotLowerFore[2] + (outerLowerZ - innerPivotLowerFore[2]) * frac
+  const shockForePt: [number, number, number] = [
+    innerPivotLowerFore[0] + (outerLowerFore[0] - innerPivotLowerFore[0]) * frac,
+    innerPivotLowerFore[1] + (outerLowerFore[1] - innerPivotLowerFore[1]) * frac,
+    innerPivotLowerFore[2] + (outerLowerFore[2] - innerPivotLowerFore[2]) * frac,
+  ]
+  const shockAftPt: [number, number, number] = [
+    innerPivotLowerAft[0] + (outerLowerAft[0] - innerPivotLowerAft[0]) * frac,
+    innerPivotLowerAft[1] + (outerLowerAft[1] - innerPivotLowerAft[1]) * frac,
+    innerPivotLowerAft[2] + (outerLowerAft[2] - innerPivotLowerAft[2]) * frac,
+  ]
+  const shockLowerX = (shockForePt[0] + shockAftPt[0]) / 2
+  const shockLowerY = (shockForePt[1] + shockAftPt[1]) / 2
+  const shockLowerZ = (shockForePt[2] + shockAftPt[2]) / 2
 
   // Kingpin midpoint (centre of upright)
   const kingpinMidX = (outerLowerX + outerUpperX) / 2
@@ -316,33 +338,25 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         </mesh>
       )}
 
-      {/* Lower wishbone - A-shape (§3.1) */}
-      <Line
-        points={[
-          innerPivotLowerFore,
-          [outerLowerX, outerLowerY, outerLowerZ],
-        ]}
-        color={CYAN}
-        lineWidth={2}
-      />
-      <Line
-        points={[
-          innerPivotLowerAft,
-          [outerLowerX, outerLowerY, outerLowerZ],
-        ]}
-        color={CYAN}
-        lineWidth={2}
-      />
+      {/* Lower wishbone - trapezoid (§3.1) */}
+      {/* Fore arm: inner fore → outer fore */}
+      <Line points={[innerPivotLowerFore, outerLowerFore]} color={CYAN} lineWidth={2} />
+      {/* Aft arm: inner aft → outer aft */}
+      <Line points={[innerPivotLowerAft, outerLowerAft]} color={CYAN} lineWidth={2} />
+      {/* Inner crossmember: inner fore → inner aft */}
+      <Line points={[innerPivotLowerFore, innerPivotLowerAft]} color={CYAN} lineWidth={1.5} />
+      {/* Outer bushing: outer fore → outer aft (horizontal) */}
+      <Line points={[outerLowerFore, outerLowerAft]} color={CYAN} lineWidth={2} />
 
-      {/* Upper arm (§3.1) */}
-      <Line
-        points={[
-          innerPivotUpper,
-          [outerUpperX, outerUpperY, outerUpperZ],
-        ]}
-        color={LIGHT_CYAN}
-        lineWidth={1.5}
-      />
+      {/* Upper wishbone - trapezoid (§3.1) */}
+      {/* Fore arm: inner fore → outer fore */}
+      <Line points={[innerPivotUpperFore, outerUpperFore]} color={LIGHT_CYAN} lineWidth={1.5} />
+      {/* Aft arm: inner aft → outer aft */}
+      <Line points={[innerPivotUpperAft, outerUpperAft]} color={LIGHT_CYAN} lineWidth={1.5} />
+      {/* Inner crossmember: inner fore → inner aft */}
+      <Line points={[innerPivotUpperFore, innerPivotUpperAft]} color={LIGHT_CYAN} lineWidth={1} />
+      {/* Outer bushing: outer fore → outer aft (horizontal) */}
+      <Line points={[outerUpperFore, outerUpperAft]} color={LIGHT_CYAN} lineWidth={1.5} />
 
       {/* Hub carrier / upright — connects upper and lower ball joints (§3.2) */}
       <Line
@@ -403,11 +417,16 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         ]}
       />
 
-      {/* Joint spheres */}
+      {/* Shock mount crossmember between lower arms */}
+      <Line points={[shockForePt, shockAftPt]} color={ORANGE} lineWidth={1} />
+
+      {/* Joint spheres — inner pivots */}
       <JointSphere position={innerPivotLowerFore} />
       <JointSphere position={innerPivotLowerAft} />
+      <JointSphere position={innerPivotUpperFore} color={LIGHT_CYAN} />
+      <JointSphere position={innerPivotUpperAft} color={LIGHT_CYAN} />
+      {/* Ball joints at bushing midpoints */}
       <JointSphere position={[outerLowerX, outerLowerY, outerLowerZ]} />
-      <JointSphere position={innerPivotUpper} color={LIGHT_CYAN} />
       <JointSphere position={[outerUpperX, outerUpperY, outerUpperZ]} color={LIGHT_CYAN} />
 
       {/* Steering arm — integral to upright, extends to A_ST (tie rod outer end) (§3.2, §3.11) */}
