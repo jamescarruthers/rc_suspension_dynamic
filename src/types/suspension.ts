@@ -49,6 +49,15 @@ export interface AxleGeometry {
   antiSquat: number;              // degrees (rear only)
 }
 
+// ─── Steering rack ──────────────────────────────────────────────────
+
+export interface SteeringRack {
+  rackWidth: number;              // mm, lateral distance between left and right tie rod inner ends
+  rackHeight: number;             // mm, height of rack axis above ground (absolute)
+  rackForwardOffset: number;      // mm, longitudinal offset of rack from axle line (positive = forward)
+  tieRodLength: number;           // mm, length of each tie rod (inner ball joint to outer ball joint)
+}
+
 // ─── Shock absorber ─────────────────────────────────────────────────
 
 export interface AxleShock {
@@ -176,6 +185,8 @@ export interface PresetConfig {
   rearShock: AxleShock;
   frontSwayBar: AxleSwayBar;
   rearSwayBar: AxleSwayBar;
+  frontSteeringRack: SteeringRack;
+  rearSteeringRack: SteeringRack;
   hydraulic: HydraulicConfig;
 }
 

@@ -763,13 +763,14 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
 function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   const vehicle = useVehicleStore((s) => s.vehicle)
   const geo = useVehicleStore((s) => axle === 'front' ? s.frontGeometry : s.rearGeometry)
+  const rack = useVehicleStore((s) => axle === 'front' ? s.frontSteeringRack : s.rearSteeringRack)
   const leftCorner = useSimulationStore((s) => s.corners[axle === 'front' ? 'FL' : 'RL'])
   const rightCorner = useSimulationStore((s) => s.corners[axle === 'front' ? 'FR' : 'RR'])
+  const steeringAngle = useSimulationStore((s) => axle === 'front' ? s.frontSteeringAngle : s.rearSteeringAngle)
   const chassisHeave = useSimulationStore((s) => s.chassisHeave)
   const rollAngle = useSimulationStore((s) => s.rollAngle)
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
 
-  const { innerPivotHeightLower } = deriveInnerPivotHeights(geo, vehicle.rideHeight, vehicle.tyreRadius)
   const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
 
   const rollRad = (rollAngle * Math.PI) / 180
@@ -800,20 +801,43 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   const leftTip = computeArmTip(leftCorner, -1)
   const rightTip = computeArmTip(rightCorner, 1)
 
-  // Bellcrank at chassis centre
-  const bellcrankY = chassisHeave + innerPivotHeightLower
-  const bellcrankZ = z - 5
-  const bC = rot(0, bellcrankY + 5, bellcrankZ)
-  const bL = rot(-8, bellcrankY, bellcrankZ)
-  const bR = rot(8, bellcrankY, bellcrankZ)
+  // Steering rack — translates laterally with steering input
+  // Rack displacement from commanded angle (same formula as kinematics solver)
+  const cmdRad = (steeringAngle * Math.PI) / 180
+  const rackDisplacement = geo.ackermannArmLength * Math.sin(cmdRad)
+  const halfRackWidth = rack.rackWidth / 2
+  const rackY = chassisHeave + rack.rackHeight
+  const rackZ = z + rack.rackForwardOffset
+
+  // Rack housing endpoints (chassis-fixed, displaced by steering)
+  const rackLeftX = -(halfRackWidth - rackDisplacement)
+  const rackRightX = halfRackWidth + rackDisplacement
+
+  // The full rack bar extends beyond the inner tie rod ends for visual clarity
+  const rackExtend = 5 // mm visual extension
+  const rackBarLeft = rot(rackLeftX - rackExtend, rackY, rackZ)
+  const rackBarRight = rot(rackRightX + rackExtend, rackY, rackZ)
+
+  // Tie rod inner ball joint positions (on the rack, displaced)
+  const tieInnerLeft = rot(rackLeftX, rackY, rackZ)
+  const tieInnerRight = rot(rackRightX, rackY, rackZ)
+
+  // Rack housing mount points (chassis-fixed, do not move with rack displacement)
+  const mountLeft = rot(-halfRackWidth - rackExtend, rackY, rackZ)
+  const mountRight = rot(halfRackWidth + rackExtend, rackY, rackZ)
 
   return (
     <group>
-      {/* Bellcrank */}
-      <Line points={[bL, bC, bR]} color={GREEN} lineWidth={1.5} />
-      {/* Tie rods from bellcrank to steering arm tips */}
-      <Line points={[bL, leftTip]} color={GREEN} lineWidth={1} />
-      <Line points={[bR, rightTip]} color={GREEN} lineWidth={1} />
+      {/* Rack housing (chassis-fixed) — shown as dashed grey line */}
+      <Line points={[mountLeft, mountRight]} color={GREY} lineWidth={1} dashed dashSize={2} gapSize={2} />
+      {/* Rack bar (moves laterally with steering) */}
+      <Line points={[rackBarLeft, rackBarRight]} color={GREEN} lineWidth={2.5} />
+      {/* Tie rod inner ball joints on the rack */}
+      <JointSphere position={tieInnerLeft} color={GREEN} size={1.5} />
+      <JointSphere position={tieInnerRight} color={GREEN} size={1.5} />
+      {/* Tie rods from rack inner ends to steering arm tips */}
+      <Line points={[tieInnerLeft, leftTip]} color={GREEN} lineWidth={1} />
+      <Line points={[tieInnerRight, rightTip]} color={GREEN} lineWidth={1} />
     </group>
   )
 }

@@ -9,7 +9,7 @@
 //
 // Coordinate frame (Three.js): X=lateral, Y=up, Z=forward.
 
-import type { AxleGeometry, AxleShock } from '../types/suspension';
+import type { AxleGeometry, AxleShock, SteeringRack } from '../types/suspension';
 import {
   type Vector3,
   type Point2D,
@@ -592,8 +592,159 @@ export function computeGeometricMotionRatio(
   return Math.max(0.1, Math.min(1.0, leverRatio * Math.abs(cosCorrection)));
 }
 
-// ─── Ackermann steering (§3.11) ─────────────────────────────────────
+// ─── Rack-based steering (§3.11) ─────────────────────────────────────
 
+/**
+ * Compute per-wheel steering angles using a steering rack with tie rods.
+ *
+ * The rack translates laterally; tie rods connect the rack ends to the
+ * steering arm tips on each upright. The tie rod length constraint
+ * determines the actual steer angle at each wheel, producing natural
+ * Ackermann geometry from the mechanism.
+ *
+ * Algorithm:
+ * 1. Convert commanded angle to rack lateral displacement
+ * 2. Compute tie rod inner end positions (on rack, displaced)
+ * 3. Compute steering arm rest geometry (at lower ball joint height)
+ * 4. Solve tie rod length constraint for each wheel's steer angle
+ *
+ * Coordinate frame: X = lateral, Y = up, Z = forward (Three.js convention)
+ */
+export function computeRackSteering(
+  commandedAngle: number,
+  geo: AxleGeometry,
+  rack: SteeringRack,
+  wheelbase: number,
+): { leftAngle: number; rightAngle: number; rackDisplacement: number } {
+  if (Math.abs(commandedAngle) < 1e-6 || geo.ackermannArmLength <= 0) {
+    return { leftAngle: commandedAngle, rightAngle: commandedAngle, rackDisplacement: 0 };
+  }
+
+  const hubOffset = geo.hubOffset ?? 0;
+  const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
+
+  // Steering arm rest angle: the arm points inward toward the rear axle centre
+  // for Ackermann geometry. armAngleRest is measured from the lateral axis.
+  const armAngleRest = Math.atan2(kingpinHalfTrack, wheelbase);
+
+  // Convert commanded angle to rack displacement.
+  // The rack displacement is the lateral shift that produces the commanded
+  // average steer angle via the steering arm geometry.
+  const cmdRad = degToRad(commandedAngle);
+  const rackDisplacement = geo.ackermannArmLength * Math.sin(cmdRad);
+
+  // Rack inner end positions (Y=lateral, Z=forward from axle)
+  // At rest (centred), the tie rod inner ends are at ±rackWidth/2 laterally,
+  // at rackHeight vertically, at rackForwardOffset longitudinally.
+  const halfRackWidth = rack.rackWidth / 2;
+
+  // Displaced rack inner end lateral positions
+  // Left inner end (negative lateral in our convention, but using unsigned here)
+  const leftInnerLateral = halfRackWidth - rackDisplacement;   // moves inboard when rack displaces right
+  const rightInnerLateral = halfRackWidth + rackDisplacement;  // moves outboard when rack displaces right
+
+  // Steering arm tip at rest (A_ST), relative to the lower ball joint:
+  // The arm extends inward and rearward from the kingpin axis.
+  // In plan view, it points toward the rear axle centre at angle armAngleRest.
+  // Lateral: kingpinHalfTrack - ackermannArmLength * cos(armAngleRest)
+  // Longitudinal: -ackermannArmLength * sin(armAngleRest) (rearward)
+  const armTipLateralRest = kingpinHalfTrack - geo.ackermannArmLength * Math.cos(armAngleRest);
+  const armTipLongitudinalRest = -geo.ackermannArmLength * Math.sin(armAngleRest);
+
+  // Steering arm tip height = lower ball joint height (approximation at ride height)
+  // The tie rod inner end is at rack height. Arm tip is at lower BJ height.
+  // For the tie rod length constraint, we work in 3D.
+
+  // Solve each side: find steer angle φ such that the distance from
+  // the displaced rack inner end to the steered arm tip equals tieRodLength.
+  const solveSteerAngle = (innerLateral: number, sideSign: number): number => {
+    // Rack inner end position (unsigned lateral, height, longitudinal)
+    const rackX = innerLateral;       // lateral (unsigned, from centreline)
+    const rackZ = rack.rackForwardOffset;  // longitudinal offset from axle
+
+    // Arm tip traces a circle about the kingpin axis as it steers.
+    // At steer angle φ, the arm tip position is:
+    //   lateral: kingpinHalfTrack - ackermannArmLength * cos(armAngleRest + φ)
+    //   longitudinal: -ackermannArmLength * sin(armAngleRest + φ)
+    //
+    // Tie rod constraint: distance from rack end to arm tip = tieRodLength
+    // We solve in the horizontal (XZ) plane since the height difference is constant.
+    //
+    // The vertical component of the tie rod contributes a constant offset to the length.
+    // Effective horizontal tie rod length:
+    // L_horiz² = tieRodLength² - (rackHeight - armTipHeight)²
+    // We need the ball joint height — use a simplified version at ride height.
+    const kpiRad = degToRad(geo.kpiAngle);
+    const halfUpright = geo.uprightHeight / 2;
+    const tyreRadiusApprox = 35; // doesn't affect the angle, just the height delta
+    const lowerBJHeight = tyreRadiusApprox - halfUpright * Math.cos(kpiRad);
+    const heightDiff = rack.rackHeight - lowerBJHeight;
+    const tieRodLenSq = rack.tieRodLength * rack.tieRodLength;
+    const heightDiffSq = heightDiff * heightDiff;
+    const horizLenSq = Math.max(tieRodLenSq - heightDiffSq, 1);
+
+    // Solve: |armTip - rackEnd|² = horizLenSq  (in the lateral/longitudinal plane)
+    // armTip(φ):
+    //   lateral = kingpinHalfTrack - ackermannArmLength * cos(armAngleRest + φ)
+    //   long    = -ackermannArmLength * sin(armAngleRest + φ)
+    //
+    // rackEnd:
+    //   lateral = rackX
+    //   long    = rackZ
+    //
+    // (armLat - rackX)² + (armLong - rackZ)² = horizLenSq
+    //
+    // Let α = armAngleRest + φ
+    // dx = kingpinHalfTrack - ackermannArmLength * cos(α) - rackX
+    // dz = -ackermannArmLength * sin(α) - rackZ
+    //
+    // This is nonlinear in α. Use Newton's method starting from φ=0.
+
+    const L = geo.ackermannArmLength;
+    let phi = 0;
+    for (let iter = 0; iter < 20; iter++) {
+      const alpha = armAngleRest + phi;
+      const cosA = Math.cos(alpha);
+      const sinA = Math.sin(alpha);
+
+      const armLat = kingpinHalfTrack - L * cosA;
+      const armLong = -L * sinA;
+
+      const dx = armLat - rackX;
+      const dz = armLong - rackZ;
+      const distSq = dx * dx + dz * dz;
+
+      // f(φ) = distSq - horizLenSq = 0
+      const f = distSq - horizLenSq;
+
+      // f'(φ) = 2 * (dx * d(armLat)/dφ + dz * d(armLong)/dφ)
+      // d(armLat)/dφ = L * sin(α)
+      // d(armLong)/dφ = -L * cos(α)
+      const dArmLat = L * sinA;
+      const dArmLong = -L * cosA;
+      const fp = 2 * (dx * dArmLat + dz * dArmLong);
+
+      if (Math.abs(fp) < 1e-12) break;
+      const step = f / fp;
+      phi -= step;
+      if (Math.abs(step) < 1e-8) break;
+    }
+
+    return radToDeg(phi);
+  };
+
+  // Left side: inner lateral is on the left (sideSign = -1)
+  const leftAngle = solveSteerAngle(leftInnerLateral, -1);
+  // Right side: inner lateral is on the right (sideSign = 1)
+  const rightAngle = solveSteerAngle(rightInnerLateral, 1);
+
+  return { leftAngle, rightAngle, rackDisplacement };
+}
+
+/**
+ * Legacy Ackermann steering (direct arm-to-arm, no rack).
+ * Kept for backward compatibility with code that doesn't have rack parameters.
+ */
 export function computeAckermannSteering(
   commandedAngle: number,
   trackWidth: number,

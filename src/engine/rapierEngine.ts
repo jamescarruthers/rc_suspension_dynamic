@@ -22,6 +22,7 @@ import type {
   AxleGeometry,
   AxleShock,
   AxleSwayBar,
+  SteeringRack,
   HydraulicConfig,
   PerCornerState,
   SimulationState,
@@ -30,7 +31,7 @@ import { CORNERS } from '../types/suspension';
 import { computeTyreForce } from './tyreContact';
 import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeHydraulicForces } from './hydraulics';
-import { updateKinematics, computeAckermannSteering, computeGeometricMotionRatio } from './kinematics';
+import { updateKinematics, computeRackSteering, computeGeometricMotionRatio } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 // ── Conversion helpers ──────────────────────────────────────────────
@@ -261,6 +262,8 @@ export function stepRapierSimulation(
   rearShock: AxleShock,
   frontSwayBar: AxleSwayBar,
   rearSwayBar: AxleSwayBar,
+  frontSteeringRack: SteeringRack,
+  rearSteeringRack: SteeringRack,
   hydraulic: HydraulicConfig,
   dt: number = 0.001,
 ): Partial<SimulationState> {
@@ -448,11 +451,11 @@ export function stepRapierSimulation(
   let frontRCH = 0;
   let rearRCH = 0;
 
-  const frontAck = computeAckermannSteering(
-    state.frontSteeringAngle, frontGeo.trackWidth, vehicle.wheelbase, frontGeo.ackermannArmLength, frontGeo.hubOffset ?? 0,
+  const frontAck = computeRackSteering(
+    state.frontSteeringAngle, frontGeo, frontSteeringRack, vehicle.wheelbase,
   );
-  const rearAck = computeAckermannSteering(
-    state.rearSteeringAngle, rearGeo.trackWidth, vehicle.wheelbase, rearGeo.ackermannArmLength, rearGeo.hubOffset ?? 0,
+  const rearAck = computeRackSteering(
+    state.rearSteeringAngle, rearGeo, rearSteeringRack, vehicle.wheelbase,
   );
 
   for (const c of CORNERS) {
@@ -510,6 +513,8 @@ export function findRapierStaticEquilibrium(
   rearShock: AxleShock,
   frontSwayBar: AxleSwayBar,
   rearSwayBar: AxleSwayBar,
+  frontSteeringRack: SteeringRack,
+  rearSteeringRack: SteeringRack,
   hydraulic: HydraulicConfig,
   maxIterations: number = 5000,
 ): Partial<SimulationState> {
@@ -565,7 +570,8 @@ export function findRapierStaticEquilibrium(
   for (let i = 0; i < maxIterations; i++) {
     const update = stepRapierSimulation(
       simState, vehicle, frontGeo, rearGeo,
-      frontShock, rearShock, frontSwayBar, rearSwayBar, hydraulic, dt,
+      frontShock, rearShock, frontSwayBar, rearSwayBar,
+      frontSteeringRack, rearSteeringRack, hydraulic, dt,
     );
     simState = { ...simState, ...update };
 

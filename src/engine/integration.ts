@@ -4,6 +4,7 @@ import type {
   AxleGeometry,
   AxleShock,
   AxleSwayBar,
+  SteeringRack,
   HydraulicConfig,
   PerCornerState,
   SimulationState,
@@ -14,7 +15,7 @@ import { computeTyreForce } from './tyreContact';
 import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeAccelerations, computeLeverArms, type CornerForceInputs } from './dynamics';
 import { computeHydraulicForces } from './hydraulics';
-import { updateKinematics, computeAckermannSteering, computeGeometricMotionRatio } from './kinematics';
+import { updateKinematics, computeRackSteering, computeGeometricMotionRatio } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 function getTyreRadius(vehicle: VehicleParams): number {
@@ -92,6 +93,8 @@ export function stepSimulation(
   rearShock: AxleShock,
   frontSwayBar: AxleSwayBar,
   rearSwayBar: AxleSwayBar,
+  frontSteeringRack: SteeringRack,
+  rearSteeringRack: SteeringRack,
   hydraulic: HydraulicConfig,
   dt: number = 0.001,
 ): Partial<SimulationState> {
@@ -254,12 +257,12 @@ export function stepSimulation(
   let frontRCH = 0;
   let rearRCH = 0;
 
-  // Ackermann steering
-  const frontAck = computeAckermannSteering(
-    state.frontSteeringAngle, frontGeo.trackWidth, vehicle.wheelbase, frontGeo.ackermannArmLength, frontGeo.hubOffset ?? 0,
+  // Rack-based steering
+  const frontAck = computeRackSteering(
+    state.frontSteeringAngle, frontGeo, frontSteeringRack, vehicle.wheelbase,
   );
-  const rearAck = computeAckermannSteering(
-    state.rearSteeringAngle, rearGeo.trackWidth, vehicle.wheelbase, rearGeo.ackermannArmLength, rearGeo.hubOffset ?? 0,
+  const rearAck = computeRackSteering(
+    state.rearSteeringAngle, rearGeo, rearSteeringRack, vehicle.wheelbase,
   );
 
   for (const c of CORNERS) {
@@ -303,6 +306,8 @@ export function findStaticEquilibrium(
   rearShock: AxleShock,
   frontSwayBar: AxleSwayBar,
   rearSwayBar: AxleSwayBar,
+  frontSteeringRack: SteeringRack,
+  rearSteeringRack: SteeringRack,
   hydraulic: HydraulicConfig,
   maxIterations: number = 5000,
 ): Partial<SimulationState> {
@@ -354,7 +359,8 @@ export function findStaticEquilibrium(
   for (let i = 0; i < maxIterations; i++) {
     const update = stepSimulation(
       simState, vehicle, frontGeo, rearGeo,
-      frontShock, rearShock, frontSwayBar, rearSwayBar, hydraulic, dt,
+      frontShock, rearShock, frontSwayBar, rearSwayBar,
+      frontSteeringRack, rearSteeringRack, hydraulic, dt,
     );
     simState = { ...simState, ...update };
 

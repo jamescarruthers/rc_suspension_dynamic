@@ -3,6 +3,7 @@ import { VehicleParams } from '../params/VehicleParams'
 import { AxleGeometryParams } from '../params/AxleGeometryParams'
 import { AxleShockParams } from '../params/AxleShockParams'
 import { AxleSwayBarParams } from '../params/AxleSwayBarParams'
+import { SteeringRackParams } from '../params/SteeringRackParams'
 import { HydraulicParams } from '../params/HydraulicParams'
 import { CopyAxleButton } from '../params/CopyAxleButton'
 
@@ -40,6 +41,8 @@ export function LeftSidebar({ mobile = false }: { mobile?: boolean }) {
           <AxleSwayBarParams axle="front" />
           <CopyAxleButton type="swayBar" />
           <AxleSwayBarParams axle="rear" />
+          <SteeringRackParams axle="front" />
+          <SteeringRackParams axle="rear" />
           <HydraulicParams />
         </div>
       </div>
