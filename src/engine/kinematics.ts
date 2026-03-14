@@ -187,7 +187,7 @@ export function computeRollCentreHeight(
  */
 export function computeGeometricCamber(
   geo: AxleGeometry,
-  rideHeight: number,
+  _rideHeight: number,
   tyreRadius: number,
   shockCompression: number,
 ): number {
@@ -279,10 +279,6 @@ export function computeAckermannSteering(
 
   const halfTrack = trackWidth / 2;
   const cmdRad = degToRad(commandedAngle);
-
-  // Steering arm tip positions at rest (arms point inward toward rear axle)
-  // The angle of the arm from the lateral axis:
-  const ackermannAngle = Math.atan2(ackermannArmLength, halfTrack);
 
   // At rest, left arm tip is at:
   //   x = halfTrack - ackermannArmLength * sin(ackermannAngle) ... simplified:

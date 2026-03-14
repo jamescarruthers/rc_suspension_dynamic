@@ -532,6 +532,8 @@ export function findRapierStaticEquilibrium(
     rearRollCentreHeight: 0,
     rollInput: 0,
     pitchInput: 0,
+    frontSteeringAngle: 0,
+    rearSteeringAngle: 0,
     dropHeight: 50,
     dropRollAngle: 0,
     dropPitchAngle: 0,
