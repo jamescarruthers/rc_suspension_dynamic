@@ -186,25 +186,40 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockTowerYLocal = chassisHeave + shock.towerHeight
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
-  // ── Outer ball joints (hub-side, rigidly attached to wheel/upright) ──
+  // ── Outer ball joints — maintain constant arm lengths (rigid links) ──
   // Compute static ball joint heights at design ride height from arm geometry
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
   const upperArmAngleRad = (geo.upperArmAngle * Math.PI) / 180
   const staticLowerOuterY = geo.innerPivotHeightLower + geo.lowerWishboneLength * Math.sin(lowerArmAngleRad)
   const staticUpperOuterY = geo.innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
 
-  // Fixed offsets of ball joints relative to wheel centre (constant for a given geometry)
+  // Fixed vertical offsets of ball joints relative to wheel centre
   const lowerJointOffsetY = staticLowerOuterY - tyreRadius
   const upperJointOffsetY = staticUpperOuterY - tyreRadius
 
-  // Ball joints move rigidly with the wheel — upright length stays constant
-  const outerLowerX = wheelX
+  // Ball joint vertical positions (move with wheel)
   const outerLowerY = wheelY + lowerJointOffsetY
-  const outerLowerZ = longitudinalOffset
-
-  const outerUpperX = wheelX
   const outerUpperY = wheelY + upperJointOffsetY
+  const outerLowerZ = longitudinalOffset
   const outerUpperZ = longitudinalOffset
+
+  // Compute ball joint lateral (X) positions from arm length constraint.
+  // The arm is a rigid link — its length cannot change. Given the inner pivot
+  // position (chassis-attached) and the ball joint Y (from wheel travel),
+  // solve for the lateral position: dx = sqrt(L² - dy²).
+  // Use the midpoint of the A-arm inner pivots for the lower arm constraint.
+  const innerMidLowerX = (innerPivotLowerFore[0] + innerPivotLowerAft[0]) / 2
+  const innerMidLowerY = (innerPivotLowerFore[1] + innerPivotLowerAft[1]) / 2
+  const lowerDY = outerLowerY - innerMidLowerY
+  const lowerDXSq = geo.lowerWishboneLength * geo.lowerWishboneLength - lowerDY * lowerDY
+  const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : geo.lowerWishboneLength
+  const outerLowerX = innerMidLowerX + sideSign * lowerDX
+
+  // Upper arm — single inner pivot
+  const upperDY = outerUpperY - innerPivotUpper[1]
+  const upperDXSq = upperArmLength * upperArmLength - upperDY * upperDY
+  const upperDX = upperDXSq > 0 ? Math.sqrt(upperDXSq) : upperArmLength
+  const outerUpperX = innerPivotUpper[0] + sideSign * upperDX
 
   // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
   const frac = shock.mountPosition / geo.lowerWishboneLength
@@ -215,11 +230,14 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // Dynamic camber
   const camber = cornerState.camberAngle
 
+  // Wheel lateral position follows the lower ball joint (track changes with travel)
+  const wheelXActual = outerLowerX
+
   return (
     <group>
       {/* Tyre */}
       <WheelTyre
-        position={[wheelX, wheelY, wheelZ]}
+        position={[wheelXActual, wheelY, wheelZ]}
         radius={tyreRadius}
         width={vehicle.tyreWidth}
         camber={camber}
@@ -229,7 +247,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       {/* Contact patch shadow on ground */}
       {!cornerState.wheelAirborne && (
         <ContactPatchShadow
-          position={[wheelX, 0.1, wheelZ]}
+          position={[wheelXActual, 0.1, wheelZ]}
           width={vehicle.tyreWidth}
           length={tyreRadius * 0.4}
         />
@@ -237,7 +255,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
       {/* Airborne indicator */}
       {cornerState.wheelAirborne && (
-        <mesh position={[wheelX, wheelY + tyreRadius + 8, wheelZ]}>
+        <mesh position={[wheelXActual, wheelY + tyreRadius + 8, wheelZ]}>
           <ringGeometry args={[3, 5, 16]} />
           <meshBasicMaterial color={ORANGE} side={2} />
         </mesh>

@@ -45,18 +45,21 @@ function computePivotPositions(
   const upperAngle = degToRad(geo.upperArmAngle);
 
   // Inner pivot positions (on the chassis)
-  const lowerInnerY = sign * geo.innerPivotHeightLower; // lateral offset of inner pivot
-  const lowerInnerZ = rideHeight;
+  // Lateral: inboard from wheel centreline by the arm's horizontal projection
+  // Vertical: ride height + pivot height above chassis reference
+  const lowerInnerY = sign * (geo.trackWidth / 2 - lowerLen * Math.cos(lowerAngle));
+  const lowerInnerZ = rideHeight + geo.innerPivotHeightLower;
 
-  const upperInnerY = sign * geo.innerPivotHeightUpper;
-  const upperInnerZ = rideHeight + geo.innerPivotSpread;
+  const upperInnerY = sign * (geo.trackWidth / 2 - upperLen * Math.cos(upperAngle));
+  const upperInnerZ = rideHeight + geo.innerPivotHeightUpper;
 
   // Outer pivot positions (at the upright / hub)
+  // The arm extends laterally outward from the inner pivot
   const lowerOuterY = lowerInnerY + sign * lowerLen * Math.cos(lowerAngle);
   const lowerOuterZ = lowerInnerZ + lowerLen * Math.sin(lowerAngle);
 
   const upperOuterY = upperInnerY + sign * upperLen * Math.cos(upperAngle);
-  const upperOuterZ = upperInnerZ - upperLen * Math.sin(upperAngle);
+  const upperOuterZ = upperInnerZ + upperLen * Math.sin(upperAngle);
 
   return {
     lowerInner: { x: lowerInnerY, y: lowerInnerZ } as Point2D,
