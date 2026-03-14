@@ -1,9 +1,22 @@
 import { useState } from 'react'
 import { GraphPanel } from '../graphs/GraphPanel'
 
-export function BottomPanel() {
+export function BottomPanel({ mobile = false }: { mobile?: boolean }) {
   const [height, setHeight] = useState(200)
   const [collapsed, setCollapsed] = useState(false)
+
+  if (mobile) {
+    return (
+      <div className="flex-1 bg-[#111820] flex flex-col min-h-0">
+        <div className="flex items-center px-3 py-2 border-b border-[#1E2D3D]">
+          <span className="text-xs text-[#556677] font-[var(--font-mono)]">LIVE GRAPHS</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          <GraphPanel />
+        </div>
+      </div>
+    )
+  }
 
   if (collapsed) {
     return (
