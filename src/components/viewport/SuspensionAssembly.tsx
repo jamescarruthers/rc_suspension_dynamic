@@ -312,9 +312,9 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   return (
     <group>
-      {/* Tyre */}
+      {/* Tyre — positioned at stub axle tip (hub) */}
       <WheelTyre
-        position={[wheelXActual, wheelY, wheelZ]}
+        position={[wheelXActual, wheelYActual, wheelZActual]}
         radius={tyreRadius}
         width={vehicle.tyreWidth}
         camber={-camber * sideSign}
@@ -332,7 +332,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
       {/* Airborne indicator */}
       {cornerState.wheelAirborne && (
-        <mesh position={[wheelXActual, wheelY + tyreRadius + 8, wheelZ]}>
+        <mesh position={[wheelXActual, wheelYActual + tyreRadius + 8, wheelZActual]}>
           <ringGeometry args={[3, 5, 16]} />
           <meshBasicMaterial color={ORANGE} side={2} />
         </mesh>

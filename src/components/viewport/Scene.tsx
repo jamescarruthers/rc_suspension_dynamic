@@ -1,10 +1,11 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { useContext } from 'react'
+import { useContext, useCallback } from 'react'
 import { GroundPlane } from './GroundPlane'
 import { SuspensionAssembly } from './SuspensionAssembly'
 import { ForceArrows } from './ForceArrows'
 import { PerfStatsContext } from '../../App'
+import { useSimulationStore } from '../../store/useSimulationStore'
 
 function PerfStatsOverlay() {
   const stats = useContext(PerfStatsContext)
@@ -44,7 +45,40 @@ export function Viewport() {
         <axesHelper args={[30]} />
       </Canvas>
       <CameraPresets />
+      <SteeringOverlay />
       <PerfStatsOverlay />
+    </div>
+  )
+}
+
+function SteeringOverlay() {
+  const frontSteer = useSimulationStore((s) => s.frontSteeringAngle)
+  const setFrontSteer = useSimulationStore((s) => s.setFrontSteeringAngle)
+
+  const onInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFrontSteer(Number(e.target.value))
+  }, [setFrontSteer])
+
+  const onDoubleClick = useCallback(() => {
+    setFrontSteer(0)
+  }, [setFrontSteer])
+
+  return (
+    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#111820]/80 border border-[#1E2D3D] rounded px-3 py-1.5 backdrop-blur-sm">
+      <span className="text-[9px] font-mono text-[#556677] select-none">STEER</span>
+      <input
+        type="range"
+        min={-30}
+        max={30}
+        step={0.5}
+        value={frontSteer}
+        onChange={onInput}
+        onDoubleClick={onDoubleClick}
+        className="w-32 h-1 accent-[#00FFE0] cursor-pointer"
+      />
+      <span className="text-[10px] font-mono text-[#00FFE0] w-10 text-right select-none">
+        {frontSteer.toFixed(1)}&deg;
+      </span>
     </div>
   )
 }
