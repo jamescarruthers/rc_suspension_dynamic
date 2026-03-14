@@ -25,22 +25,41 @@ export interface KinematicsResult {
 // ─── Derived geometry ───────────────────────────────────────────────
 
 /**
- * Derive the upper arm angle from the upright height and other geometry.
+ * Derive inner pivot heights from user-facing geometry parameters.
  *
- * The upright height defines the vertical distance between the lower and
- * upper outer ball joints. Given the lower arm geometry and inner pivot
- * heights, the upper arm angle is the one that places the upper ball joint
- * at exactly uprightHeight above the lower ball joint.
+ * The upright is centred on the wheel (tyre radius). Ball joint positions
+ * are determined by upright height and kingpin angle. Inner pivot heights
+ * are then calculated back from the ball joint positions, arm lengths,
+ * and arm angles at rest.
+ *
+ * Returns heights relative to chassis reference (add rideHeight for
+ * absolute Z above ground).
  */
-export function deriveUpperArmAngle(geo: AxleGeometry): number {
+export function deriveInnerPivotHeights(
+  geo: AxleGeometry,
+  rideHeight: number,
+  tyreRadius: number,
+): { innerPivotHeightLower: number; innerPivotHeightUpper: number } {
+  const kpiRad = degToRad(geo.kpiAngle);
+  const halfUpright = geo.uprightHeight / 2;
+
+  // Ball joint positions (Z = height above ground)
+  const lowerBallJointZ = tyreRadius - halfUpright * Math.cos(kpiRad);
+  const upperBallJointZ = tyreRadius + halfUpright * Math.cos(kpiRad);
+
+  // Arm lengths
   const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
-  const lowerAngle = degToRad(geo.lowerArmAngle);
-  const lowerOuterZ = geo.innerPivotHeightLower + lowerLen * Math.sin(lowerAngle);
-  const upperOuterZ = lowerOuterZ + geo.uprightHeight;
-  const upperArmLength = lowerLen * geo.upperArmLengthRatio;
-  if (upperArmLength <= 0) return 0;
-  const sinAngle = (upperOuterZ - geo.innerPivotHeightUpper) / upperArmLength;
-  return radToDeg(Math.asin(Math.max(-1, Math.min(1, sinAngle))));
+  const upperLen = lowerLen * geo.upperArmLengthRatio;
+
+  // Inner pivot Z above ground = ball joint Z minus arm rise
+  const lowerInnerZ = lowerBallJointZ - lowerLen * Math.sin(degToRad(geo.lowerArmAngle));
+  const upperInnerZ = upperBallJointZ - upperLen * Math.sin(degToRad(geo.upperArmAngle));
+
+  // Convert to chassis-relative (subtract rideHeight)
+  return {
+    innerPivotHeightLower: lowerInnerZ - rideHeight,
+    innerPivotHeightUpper: upperInnerZ - rideHeight,
+  };
 }
 
 // ─── Pivot position helpers ─────────────────────────────────────────
@@ -53,9 +72,10 @@ export function deriveUpperArmAngle(geo: AxleGeometry): number {
  *   Y = 0 at vehicle centreline, positive to the right
  *   Z = 0 at ground level, positive up
  */
-function computePivotPositions(
+export function computePivotPositions(
   geo: AxleGeometry,
   rideHeight: number,
+  tyreRadius: number,
   isLeftSide: boolean,
 ) {
   const sign = isLeftSide ? -1 : 1;
@@ -63,19 +83,20 @@ function computePivotPositions(
   const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
   const upperLen = lowerLen * geo.upperArmLengthRatio;
   const lowerAngle = degToRad(geo.lowerArmAngle);
-  const upperAngle = degToRad(deriveUpperArmAngle(geo));
+  const upperAngle = degToRad(geo.upperArmAngle);
+
+  // Derive inner pivot heights from user-facing params
+  const { innerPivotHeightLower, innerPivotHeightUpper } =
+    deriveInnerPivotHeights(geo, rideHeight, tyreRadius);
 
   // Inner pivot positions (on the chassis)
-  // Lateral: inboard from wheel centreline by the arm's horizontal projection
-  // Vertical: ride height + pivot height above chassis reference
   const lowerInnerY = sign * (geo.trackWidth / 2 - lowerLen * Math.cos(lowerAngle));
-  const lowerInnerZ = rideHeight + geo.innerPivotHeightLower;
+  const lowerInnerZ = rideHeight + innerPivotHeightLower;
 
   const upperInnerY = sign * (geo.trackWidth / 2 - upperLen * Math.cos(upperAngle));
-  const upperInnerZ = rideHeight + geo.innerPivotHeightUpper;
+  const upperInnerZ = rideHeight + innerPivotHeightUpper;
 
   // Outer pivot positions (at the upright / hub)
-  // The arm extends laterally outward from the inner pivot
   const lowerOuterY = lowerInnerY + sign * lowerLen * Math.cos(lowerAngle);
   const lowerOuterZ = lowerInnerZ + lowerLen * Math.sin(lowerAngle);
 
@@ -100,9 +121,10 @@ function computePivotPositions(
 export function computeInstantCentre(
   geo: AxleGeometry,
   rideHeight: number,
+  tyreRadius: number,
   isLeftSide: boolean,
 ): InstantCentre {
-  const pivots = computePivotPositions(geo, rideHeight, isLeftSide);
+  const pivots = computePivotPositions(geo, rideHeight, tyreRadius, isLeftSide);
 
   const ic = lineIntersection2D(
     pivots.lowerInner,
@@ -180,10 +202,11 @@ export function computeCamberFromTravel(
 export function updateKinematics(
   geo: AxleGeometry,
   rideHeight: number,
+  tyreRadius: number,
   shockCompression: number,
   isLeftSide: boolean,
 ): KinematicsResult {
-  const ic = computeInstantCentre(geo, rideHeight, isLeftSide);
+  const ic = computeInstantCentre(geo, rideHeight, tyreRadius, isLeftSide);
 
   const halfTrack = geo.trackWidth / 2;
   const contactPatchY = isLeftSide ? -halfTrack : halfTrack;

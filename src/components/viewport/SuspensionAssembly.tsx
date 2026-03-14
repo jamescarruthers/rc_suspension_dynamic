@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Line } from '@react-three/drei'
 import { useVehicleStore } from '../../store/useVehicleStore'
 import { useSimulationStore } from '../../store/useSimulationStore'
-import { deriveUpperArmAngle } from '../../engine/kinematics'
+import { deriveInnerPivotHeights } from '../../engine/kinematics'
 import type { Corner } from '../../types/suspension'
 
 const CYAN = '#00FFE0'
@@ -167,15 +167,19 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   // ── Derived lengths & angles ──
   const lowerWishboneLength = geo.lowerWishboneRatio * geo.trackWidth / 2
-  const upperArmAngleDeg = deriveUpperArmAngle(geo)
+  const upperArmAngleDeg = geo.upperArmAngle
   const upperArmLength = lowerWishboneLength * geo.upperArmLengthRatio
+
+  // Derive inner pivot heights from user-facing params
+  const { innerPivotHeightLower, innerPivotHeightUpper } =
+    deriveInnerPivotHeights(geo, vehicle.rideHeight, tyreRadius)
 
   // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
   // Inner pivot positions on the chassis
   const innerPivotXLocal = sideSign * (geo.trackWidth / 2 - lowerWishboneLength)
-  const innerLowerYLocal = chassisHeave + geo.innerPivotHeightLower
-  const innerUpperYLocal = chassisHeave + geo.innerPivotHeightUpper
+  const innerLowerYLocal = chassisHeave + innerPivotHeightLower
+  const innerUpperYLocal = chassisHeave + innerPivotHeightUpper
 
   const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset + geo.innerPivotSpread / 2)
   const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset - geo.innerPivotSpread / 2)
@@ -189,7 +193,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockAngleRad = (shock.shockAngle * Math.PI) / 180
   const staticLowerMountXLocal = innerPivotXLocal +
     sideSign * lowerWishboneLength * Math.cos(lowerArmAngleRad) * shock.damperAttachmentRatio
-  const staticLowerMountYLocal = geo.innerPivotHeightLower +
+  const staticLowerMountYLocal = innerPivotHeightLower +
     lowerWishboneLength * Math.sin(lowerArmAngleRad) * shock.damperAttachmentRatio
   const shockTowerXLocal = staticLowerMountXLocal - sideSign * shock.shockLength * Math.sin(shockAngleRad)
   const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
@@ -198,8 +202,8 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // ── Outer ball joints — maintain constant arm lengths (rigid links) ──
   // Compute static ball joint heights at design ride height from arm geometry
   const upperArmAngleRad = (upperArmAngleDeg * Math.PI) / 180
-  const staticLowerOuterY = geo.innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
-  const staticUpperOuterY = geo.innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
+  const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
+  const staticUpperOuterY = innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
 
   // Fixed vertical offsets of ball joints relative to wheel centre
   const lowerJointOffsetY = staticLowerOuterY - tyreRadius
@@ -440,6 +444,8 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
 
   if (!swayBar.enabled) return null
 
+  const { innerPivotHeightLower } = deriveInnerPivotHeights(geo, vehicle.rideHeight, vehicle.tyreRadius)
+
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
   const rot = (x: number, y: number, z: number): [number, number, number] =>
@@ -449,7 +455,7 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
   const z = axle === 'front'
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
-  const y = chassisHeave + geo.innerPivotHeightLower + 5
+  const y = chassisHeave + innerPivotHeightLower + 5
   const halfWidth = swayBar.armLength
 
   const pL = rot(-halfWidth, y, z)
@@ -475,6 +481,8 @@ function SteeringLinkage() {
   const rollAngle = useSimulationStore((s) => s.rollAngle)
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
 
+  const { innerPivotHeightLower } = deriveInnerPivotHeights(frontGeo, vehicle.rideHeight, vehicle.tyreRadius)
+
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
   const rot = (x: number, y: number, z: number): [number, number, number] =>
@@ -482,7 +490,7 @@ function SteeringLinkage() {
 
   const frontWeightFrac = vehicle.weightDistribution / 100
   const z = vehicle.wheelbase * (1 - frontWeightFrac) - 5
-  const y = chassisHeave + frontGeo.innerPivotHeightLower
+  const y = chassisHeave + innerPivotHeightLower
   const halfTrack = frontGeo.trackWidth / 2
 
   const bL = rot(-8, y, z)

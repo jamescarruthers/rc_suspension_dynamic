@@ -434,7 +434,7 @@ export function stepRK4Simulation(
   let rearRCH = 0;
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
-    const kin = updateKinematics(geo, vehicle.rideHeight, newCorners[c].shockCompression, isLeft(c));
+    const kin = updateKinematics(geo, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
     newCorners[c].camberAngle = kin.camber;
     if (isFront(c)) frontRCH += kin.rollCentreHeight * 0.5;
     else rearRCH += kin.rollCentreHeight * 0.5;
