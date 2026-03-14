@@ -78,6 +78,8 @@ function defaultCornerState(): PerCornerState {
     scrubRadius: 0,
     casterTrail: 0,
     motionRatio: 0,
+    lowerBJPosition: { lateral: 0, vertical: 0, longitudinal: 0 },
+    upperBJPosition: { lateral: 0, vertical: 0, longitudinal: 0 },
   };
 }
 
@@ -270,6 +272,8 @@ export function stepSimulation(
     newCorners[c].scrubRadius = kin.scrubRadius;
     newCorners[c].casterTrail = kin.casterTrail;
     newCorners[c].motionRatio = kin.motionRatio;
+    newCorners[c].lowerBJPosition = { lateral: kin.ballJoints.lowerBJ.y, vertical: kin.ballJoints.lowerBJ.z, longitudinal: kin.ballJoints.lowerBJ.x };
+    newCorners[c].upperBJPosition = { lateral: kin.ballJoints.upperBJ.y, vertical: kin.ballJoints.upperBJ.z, longitudinal: kin.ballJoints.upperBJ.x };
     // Per-wheel steering after Ackermann
     const ack = isFront(c) ? frontAck : rearAck;
     newCorners[c].steeringAngle = isLeft(c) ? ack.leftAngle : ack.rightAngle;

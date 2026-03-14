@@ -31,6 +31,8 @@ const channelConfig: Record<string, { label: string; color: string; unit: string
   frScrubRadius: { label: 'FR Scrub Radius', color: '#FF8888', unit: 'mm' },
   flCasterTrail: { label: 'FL Caster Trail', color: '#44FF44', unit: 'mm' },
   frCasterTrail: { label: 'FR Caster Trail', color: '#88FF88', unit: 'mm' },
+  flDynCaster: { label: 'FL Caster', color: '#44AAFF', unit: '°' },
+  frDynCaster: { label: 'FR Caster', color: '#88CCFF', unit: '°' },
   flKPI: { label: 'FL KPI', color: '#4444FF', unit: '°' },
   frKPI: { label: 'FR KPI', color: '#8888FF', unit: '°' },
   flMotionRatio: { label: 'FL Motion Ratio', color: '#FFAA00', unit: '' },

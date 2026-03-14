@@ -220,6 +220,8 @@ function App() {
         frScrubRadius: s.corners.FR.scrubRadius,
         flCasterTrail: s.corners.FL.casterTrail,
         frCasterTrail: s.corners.FR.casterTrail,
+        flDynCaster: s.corners.FL.dynamicCaster,
+        frDynCaster: s.corners.FR.dynamicCaster,
         flKPI: s.corners.FL.dynamicKPI,
         frKPI: s.corners.FR.dynamicKPI,
         flMotionRatio: s.corners.FL.motionRatio,

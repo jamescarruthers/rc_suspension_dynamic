@@ -172,29 +172,51 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const { innerPivotHeightLower, innerPivotHeightUpper } =
     deriveInnerPivotHeights(geo, vehicle.rideHeight, tyreRadius)
 
-  // ── Caster geometry (§3.3) ──
-  // Caster angle tilts the kingpin axis rearward in the side (XZ) plane.
-  // Upper ball joint is offset rearward, lower forward, relative to axle line.
-  const casterRad = (geo.casterAngle * Math.PI) / 180
-  const halfUpright = geo.uprightHeight / 2
-  const lowerBJLongOffset = halfUpright * Math.sin(casterRad)   // forward offset
-  const upperBJLongOffset = -halfUpright * Math.sin(casterRad)  // rearward offset
+  // ── Dynamic ball joint positions from 3D solver ──
+  // The kinematics solver provides unsigned lateral, absolute vertical,
+  // and longitudinal offset from axle line.
+  const lowerBJ = cornerState.lowerBJPosition
+  const upperBJ = cornerState.upperBJPosition
+
+  // Convert to Three.js world coordinates
+  const outerLowerX = sideSign * lowerBJ.lateral
+  const outerLowerY = lowerBJ.vertical
+  const outerLowerZ = longitudinalOffset + lowerBJ.longitudinal
+  const outerUpperX = sideSign * upperBJ.lateral
+  const outerUpperY = upperBJ.vertical
+  const outerUpperZ = longitudinalOffset + upperBJ.longitudinal
+
+  // Dynamic camber and steering
+  const camber = cornerState.camberAngle
+  const steerAngle = cornerState.steeringAngle
 
   // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
   // Inner pivot positions on the chassis
-  // trackWidth = wheel-centre-to-wheel-centre; arms span from kingpin inward
   const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
   const innerPivotXLocal = sideSign * (kingpinHalfTrack - lowerWishboneLength)
   const innerLowerYLocal = chassisHeave + innerPivotHeightLower
   const innerUpperYLocal = chassisHeave + innerPivotHeightUpper
 
-  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset + geo.innerPivotSpread / 2)
-  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset - geo.innerPivotSpread / 2)
+  // Anti-dive/anti-squat: fore/aft inner pivots at different heights (§3.1, §4.4)
+  const sideViewAngleDeg = geo.antiDive || geo.antiSquat || 0
+  const sideViewAngleRad = (sideViewAngleDeg * Math.PI) / 180
+  const halfSpread = geo.innerPivotSpread / 2
+  const heightDiffHalf = halfSpread * Math.tan(sideViewAngleRad)
 
-  // Upper arm inner pivot
+  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
+  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
+
+  // Upper arm inner pivot — also inclined by anti-dive/anti-squat
   const innerUpperXLocal = sideSign * (kingpinHalfTrack - upperArmLength)
-  const innerPivotUpper = rot(innerUpperXLocal, innerUpperYLocal, longitudinalOffset)
+  const innerPivotUpperFore = rot(innerUpperXLocal, innerUpperYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
+  const innerPivotUpperAft = rot(innerUpperXLocal, innerUpperYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
+  // Midpoint for arm drawing
+  const innerPivotUpper: [number, number, number] = [
+    (innerPivotUpperFore[0] + innerPivotUpperAft[0]) / 2,
+    (innerPivotUpperFore[1] + innerPivotUpperAft[1]) / 2,
+    (innerPivotUpperFore[2] + innerPivotUpperAft[2]) / 2,
+  ]
 
   // Shock tower — derived from static lower mount position + shock vector
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
@@ -207,35 +229,10 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
-  // ── Lower ball joint — lower wishbone takes precedence ──
-  const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
-  const lowerJointOffsetY = staticLowerOuterY - tyreRadius
-  const outerLowerY = wheelY + lowerJointOffsetY
-  // Lower ball joint longitudinal position offset by caster (§3.3)
-  const outerLowerZ = longitudinalOffset + lowerBJLongOffset
-
-  // Lower ball joint lateral (X) from arm length constraint
-  const innerMidLowerX = (innerPivotLowerFore[0] + innerPivotLowerAft[0]) / 2
-  const innerMidLowerY = (innerPivotLowerFore[1] + innerPivotLowerAft[1]) / 2
-  const lowerDY = outerLowerY - innerMidLowerY
-  const lowerDXSq = lowerWishboneLength * lowerWishboneLength - lowerDY * lowerDY
-  const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
-  const outerLowerX = innerMidLowerX + sideSign * lowerDX
-
-  // Dynamic camber and steering
-  const camber = cornerState.camberAngle
-  const steerAngle = cornerState.steeringAngle
-
-  // ── Upper ball joint derived from upright attached to lower ball joint ──
-  // Lower wishbone determines lower ball joint, then the upright (rigid link)
-  // sets upper ball joint position. Upper arm angle follows.
+  // Upright angle for stub axle direction
   const kpiRad = (geo.kpiAngle * Math.PI) / 180
   const camberChangeRad = ((camber - geo.staticCamber) * Math.PI) / 180
   const uprightAngle = kpiRad - camberChangeRad
-  const outerUpperX = outerLowerX - sideSign * geo.uprightHeight * Math.sin(uprightAngle)
-  const outerUpperY = outerLowerY + geo.uprightHeight * Math.cos(uprightAngle)
-  // Upper ball joint longitudinal offset by caster — rearward (§3.3)
-  const outerUpperZ = longitudinalOffset + upperBJLongOffset
 
   // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
   const frac = shock.damperAttachmentRatio
@@ -249,13 +246,11 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const kingpinMidZ = (outerLowerZ + outerUpperZ) / 2
 
   // ── Stub axle — perpendicular to upright face (§3.4) ──
-  // The stub axle axis is perpendicular to the kingpin axis.
-  // In the frontal plane it tilts by the complement of the upright angle,
-  // and in the side plane it tilts by caster.
-  // Direction: outward from kingpin midpoint to wheel hub
-  const stubDirX = sideSign * Math.cos(uprightAngle) * Math.cos(casterRad)
+  // Use dynamic caster from 3D solver instead of static caster angle
+  const dynamicCasterRad = (cornerState.dynamicCaster * Math.PI) / 180
+  const stubDirX = sideSign * Math.cos(uprightAngle) * Math.cos(dynamicCasterRad)
   const stubDirY = Math.sin(uprightAngle)
-  const stubDirZ = -sideSign * Math.cos(uprightAngle) * Math.sin(casterRad)
+  const stubDirZ = -sideSign * Math.cos(uprightAngle) * Math.sin(dynamicCasterRad)
   const hubOffset = geo.hubOffset ?? 0
   const wheelXActual = kingpinMidX + stubDirX * hubOffset
   const wheelYActual = kingpinMidY + stubDirY * hubOffset
@@ -282,9 +277,6 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const contactPatchZ = wheelZActual
 
   // ── Steering arm (§3.2, §3.11) ──
-  // The steering arm is integral to the upright (A_ST point).
-  // It extends from the upright, rearward and inward toward the rear axle centreline.
-  // The A_ST point is near the lower ball joint height but offset rearward.
   const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
   const steerRad = (steerAngle * Math.PI) / 180
   const armAngle = ackermannRestAngle + steerRad
@@ -724,7 +716,6 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
 
   const { innerPivotHeightLower } = deriveInnerPivotHeights(geo, vehicle.rideHeight, vehicle.tyreRadius)
-  const { lowerLen: lowerWishboneLength } = armLengths(geo)
   const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
 
   const rollRad = (rollAngle * Math.PI) / 180
@@ -737,29 +728,13 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
   const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
-  const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
-  const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
 
-  // Caster offset for lower ball joint longitudinal position (§3.3)
-  const casterRad = (geo.casterAngle * Math.PI) / 180
-  const halfUpright = geo.uprightHeight / 2
-  const lowerBJLongOffset = halfUpright * Math.sin(casterRad)
-
-  // Compute arm tip positions for each side
+  // Compute arm tip positions for each side using dynamic BJ positions from state
   const computeArmTip = (cornerState: typeof leftCorner, sideSign: number) => {
-    const lowerJointOffsetY = staticLowerOuterY - vehicle.tyreRadius
-    const outerLowerY = cornerState.wheelPosition + lowerJointOffsetY
-
-    const innerPivotXLocal = sideSign * (kingpinHalfTrack - lowerWishboneLength)
-    const innerLowerYLocal = chassisHeave + innerPivotHeightLower
-    const innerMidX = rot(innerPivotXLocal, innerLowerYLocal, z)[0]
-    const innerMidY = rot(innerPivotXLocal, innerLowerYLocal, z)[1]
-
-    const lowerDY = outerLowerY - innerMidY
-    const lowerDXSq = lowerWishboneLength * lowerWishboneLength - lowerDY * lowerDY
-    const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
-    const outerLowerX = innerMidX + sideSign * lowerDX
-    const outerLowerZ = z + lowerBJLongOffset
+    const lowerBJ = cornerState.lowerBJPosition
+    const outerLowerX = sideSign * lowerBJ.lateral
+    const outerLowerY = lowerBJ.vertical
+    const outerLowerZ = z + lowerBJ.longitudinal
 
     const steerRad = (cornerState.steeringAngle * Math.PI) / 180
     const armAngle = ackermannRestAngle + steerRad

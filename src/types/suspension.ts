@@ -110,6 +110,9 @@ export interface PerCornerState {
   scrubRadius: number;            // mm, lateral offset of kingpin ground intercept from contact patch
   casterTrail: number;            // mm, longitudinal offset of kingpin ground intercept from contact patch
   motionRatio: number;            // instantaneous motion ratio (varies with travel)
+  // 3D ball joint positions from dynamic solver (unsigned lateral, absolute vertical, longitudinal offset from axle)
+  lowerBJPosition: { lateral: number; vertical: number; longitudinal: number };
+  upperBJPosition: { lateral: number; vertical: number; longitudinal: number };
 }
 
 // ─── Full simulation state ──────────────────────────────────────────

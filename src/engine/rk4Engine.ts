@@ -452,6 +452,8 @@ export function stepRK4Simulation(
     newCorners[c].scrubRadius = kin.scrubRadius;
     newCorners[c].casterTrail = kin.casterTrail;
     newCorners[c].motionRatio = kin.motionRatio;
+    newCorners[c].lowerBJPosition = { lateral: kin.ballJoints.lowerBJ.y, vertical: kin.ballJoints.lowerBJ.z, longitudinal: kin.ballJoints.lowerBJ.x };
+    newCorners[c].upperBJPosition = { lateral: kin.ballJoints.upperBJ.y, vertical: kin.ballJoints.upperBJ.z, longitudinal: kin.ballJoints.upperBJ.x };
     const ack = isFront(c) ? frontAck : rearAck;
     newCorners[c].steeringAngle = isLeft(c) ? ack.leftAngle : ack.rightAngle;
     if (isFront(c)) frontRCH += kin.rollCentreHeight * 0.5;
