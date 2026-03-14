@@ -16,7 +16,7 @@ import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeAccelerations, computeLeverArms, type CornerForceInputs } from './dynamics';
 import { computeHydraulicForces } from './hydraulics';
 import { updateKinematics, computeRackSteering, computeGeometricMotionRatio, computeSteeringCamberGain, computeAckermannPercent } from './kinematics';
-import { getGroundHeight, type CornerPositions } from './roadSurface';
+import { getGroundHeightAndVelocity, type CornerPositions } from './roadSurface';
 
 function getTyreRadius(vehicle: VehicleParams): number {
   return vehicle.tyreRadius ?? 42;
@@ -103,18 +103,21 @@ export function stepSimulation(
 
   // Road surface
   const cornerPos = getCornerPositions(vehicle, frontGeo, rearGeo);
-  const groundHeights = getGroundHeight(
+  const roadParams = {
+    height: state.roadBumpHeight,
+    width: state.roadBumpWidth,
+    speed: state.roadSpeed,
+    frequency: state.roadFrequency,
+    targetCorner: state.roadTargetCorner as any,
+  };
+  const ground = getGroundHeightAndVelocity(
     state.roadSurfaceType as any,
-    {
-      height: state.roadBumpHeight,
-      width: state.roadBumpWidth,
-      speed: state.roadSpeed,
-      frequency: state.roadFrequency,
-      targetCorner: state.roadTargetCorner as any,
-    },
+    roadParams,
     cornerPos,
     newTime,
   );
+  const groundHeights = ground.heights;
+  const groundVelocities = ground.velocities;
 
   // Lever arms
   const leverArms = computeLeverArms(vehicle, frontGeo, rearGeo);
@@ -146,6 +149,7 @@ export function stepSimulation(
       tyreRadius,
       vehicle.tyreSpringRate,
       vehicle.tyreDamping,
+      groundVelocities[c],
     );
     cornerForces[c].tyreForce = tyre.force;
     newCorners[c].tyreContactForce = tyre.force;

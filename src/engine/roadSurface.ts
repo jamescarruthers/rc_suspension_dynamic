@@ -238,3 +238,39 @@ export function getGroundHeight(
       return flat();
   }
 }
+
+export interface GroundHeightAndVelocity {
+  heights: Record<Corner, number>;
+  velocities: Record<Corner, number>;
+}
+
+/**
+ * Get the ground height and vertical velocity at each corner.
+ * Velocity is computed via central finite difference: dh/dt ≈ (h(t+ε) - h(t-ε)) / (2ε).
+ */
+export function getGroundHeightAndVelocity(
+  type: RoadProfileType,
+  params: RoadProfileParams,
+  cornerPositions: CornerPositions,
+  time: number,
+): GroundHeightAndVelocity {
+  const heights = getGroundHeight(type, params, cornerPositions, time);
+
+  if (type === 'flat') {
+    return { heights, velocities: { FL: 0, FR: 0, RL: 0, RR: 0 } };
+  }
+
+  const eps = 0.0001; // 0.1ms for central difference
+  const hBefore = getGroundHeight(type, params, cornerPositions, time - eps);
+  const hAfter = getGroundHeight(type, params, cornerPositions, time + eps);
+  const inv2eps = 1 / (2 * eps);
+
+  const velocities: Record<Corner, number> = {
+    FL: (hAfter.FL - hBefore.FL) * inv2eps,
+    FR: (hAfter.FR - hBefore.FR) * inv2eps,
+    RL: (hAfter.RL - hBefore.RL) * inv2eps,
+    RR: (hAfter.RR - hBefore.RR) * inv2eps,
+  };
+
+  return { heights, velocities };
+}

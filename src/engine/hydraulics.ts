@@ -76,7 +76,9 @@ export function computeHydraulicForces(
   const lineDiameter = config.lineInternalDiameter;
   const lineLength = config.lineLength;
 
-  const A_eff = (A_bore + A_rod) / 2;
+  // Use bore area as effective area — in a differential cylinder interconnection,
+  // the bore side drives the flow. Averaging bore and rod areas is non-physical.
+  const A_eff = A_bore;
 
   // Define linked pairs based on topology
   let pairs: [Corner, Corner][];

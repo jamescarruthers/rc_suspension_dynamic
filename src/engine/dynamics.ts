@@ -10,9 +10,6 @@ import type { Corner, VehicleParams, AxleGeometry } from '../types/suspension';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
-/** Gravity in mm/s² */
-export const G_MM = 9810;
-
 /** Convert grams to kg */
 export function massToKg(massG: number): number {
   return massG / 1000;
@@ -68,29 +65,33 @@ export function computeLeverArms(
 
 /**
  * Compute roll moment of inertia for the sprung mass.
- * I_roll = m_s * (avg_track/2)^2 * 0.3
+ * I_roll = m_s * (avg_track/2)^2 * k
+ * where k is the radius-of-gyration scaling factor (typically 0.2–0.4).
  * Returns in g·mm².
  */
 export function computeRollInertia(
   sprungMassG: number,
   frontTrackMM: number,
   rearTrackMM: number,
+  inertiaScaling: number = 0.3,
 ): number {
   const avgHalfTrack = (frontTrackMM + rearTrackMM) / 4;
-  return sprungMassG * avgHalfTrack * avgHalfTrack * 0.3;
+  return sprungMassG * avgHalfTrack * avgHalfTrack * inertiaScaling;
 }
 
 /**
  * Compute pitch moment of inertia for the sprung mass.
- * I_pitch = m_s * (wheelbase/2)^2 * 0.3
+ * I_pitch = m_s * (wheelbase/2)^2 * k
+ * where k is the radius-of-gyration scaling factor (typically 0.2–0.4).
  * Returns in g·mm².
  */
 export function computePitchInertia(
   sprungMassG: number,
   wheelbaseMM: number,
+  inertiaScaling: number = 0.3,
 ): number {
   const halfWB = wheelbaseMM / 2;
-  return sprungMassG * halfWB * halfWB * 0.3;
+  return sprungMassG * halfWB * halfWB * inertiaScaling;
 }
 
 // ─── Accelerations ──────────────────────────────────────────────────
@@ -166,11 +167,12 @@ export function computeAccelerations(
   // Roll acceleration (rad/s²)
   // M_roll in N·mm, I_roll in g·mm²
   // alpha = M[N·m] / I[kg·m²] = (M_N_mm * 1e-3) / (I_g_mm2 * 1e-9) = M / I * 1e6
-  const I_roll = computeRollInertia(sprungMassG, frontGeo.trackWidth, rearGeo.trackWidth);
+  const inertiaK = vehicle.inertiaScaling ?? 0.3;
+  const I_roll = computeRollInertia(sprungMassG, frontGeo.trackWidth, rearGeo.trackWidth, inertiaK);
   const alpha_roll = I_roll > 0 ? (M_roll / I_roll) * 1e6 : 0;
 
   // Pitch acceleration (rad/s²)
-  const I_pitch = computePitchInertia(sprungMassG, vehicle.wheelbase);
+  const I_pitch = computePitchInertia(sprungMassG, vehicle.wheelbase, inertiaK);
   const alpha_pitch = I_pitch > 0 ? (M_pitch / I_pitch) * 1e6 : 0;
 
   // Unsprung masses

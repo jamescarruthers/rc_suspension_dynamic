@@ -32,7 +32,7 @@ import { computeTyreForce } from './tyreContact';
 import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeHydraulicForces } from './hydraulics';
 import { updateKinematics, computeRackSteering, computeGeometricMotionRatio, computeSteeringCamberGain, computeAckermannPercent } from './kinematics';
-import { getGroundHeight, type CornerPositions } from './roadSurface';
+import { getGroundHeightAndVelocity, type CornerPositions } from './roadSurface';
 import { computeLeverArms } from './dynamics';
 
 // ── Conversion helpers ──────────────────────────────────────────────
@@ -276,7 +276,7 @@ export function stepRapierSimulation(
 
   // ── Road surface heights ──────────────────────────────────────────
   const cornerPos = getCornerPositions(vehicle, frontGeo, rearGeo);
-  const groundHeights = getGroundHeight(
+  const ground = getGroundHeightAndVelocity(
     state.roadSurfaceType as any,
     {
       height: state.roadBumpHeight,
@@ -288,6 +288,8 @@ export function stepRapierSimulation(
     cornerPos,
     newTime,
   );
+  const groundHeights = ground.heights;
+  const groundVelocities = ground.velocities;
 
   const tyreRadius = vehicle.tyreRadius ?? 42;
 
@@ -329,6 +331,7 @@ export function stepRapierSimulation(
       tyreRadius,
       vehicle.tyreSpringRate,
       vehicle.tyreDamping,
+      groundVelocities[c],
     );
     newCorners[c].tyreContactForce = tyre.force;
     newCorners[c].tyreDeflection = tyre.deflection;

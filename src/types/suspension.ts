@@ -25,6 +25,7 @@ export interface VehicleParams {
   tyreDamping: number;            // Ns/mm, 0.001-0.5, default 0.05
   tyreRadius: number;             // mm, loaded tyre radius (1:8 ~42, 1:10 ~35)
   tyreWidth: number;              // mm, tyre section width (1:8 ~45, 1:10 ~35)
+  inertiaScaling: number;         // 0.1-1.0, radius-of-gyration fraction for roll/pitch inertia (default 0.3)
 }
 
 // ─── Axle geometry ──────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export interface AxleShock {
   dampingRebound: number;         // Ns/mm
   maxDroop: number;               // mm
   maxBump: number;                // mm
+  bumpStopStiffness: number;      // N/mm², quadratic bump stop coefficient (default 50)
 }
 
 // ─── Sway bar ───────────────────────────────────────────────────────
