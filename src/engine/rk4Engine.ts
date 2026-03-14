@@ -434,10 +434,10 @@ export function stepRK4Simulation(
   let rearRCH = 0;
 
   const frontAck = computeAckermannSteering(
-    state.frontSteeringAngle, frontGeo.trackWidth, vehicle.wheelbase, frontGeo.ackermannArmLength,
+    state.frontSteeringAngle, frontGeo.trackWidth, vehicle.wheelbase, frontGeo.ackermannArmLength, frontGeo.hubOffset ?? 0,
   );
   const rearAck = computeAckermannSteering(
-    state.rearSteeringAngle, rearGeo.trackWidth, vehicle.wheelbase, rearGeo.ackermannArmLength,
+    state.rearSteeringAngle, rearGeo.trackWidth, vehicle.wheelbase, rearGeo.ackermannArmLength, rearGeo.hubOffset ?? 0,
   );
 
   for (const c of CORNERS) {

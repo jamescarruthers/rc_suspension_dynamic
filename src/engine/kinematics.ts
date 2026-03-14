@@ -25,9 +25,13 @@ export interface KinematicsResult {
 
 // ─── Arm lengths ────────────────────────────────────────────────────
 
-/** Derive lower and upper arm lengths (mm) from axle geometry. */
+/** Derive lower and upper arm lengths (mm) from axle geometry.
+ *  trackWidth is wheel-centre-to-wheel-centre; arms span from inner
+ *  pivot to kingpin (ball joint), which is hubOffset inboard of wheel centre. */
 export function armLengths(geo: AxleGeometry): { lowerLen: number; upperLen: number } {
-  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
+  const hubOffset = geo.hubOffset ?? 0;
+  const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
+  const lowerLen = geo.lowerWishboneRatio * kingpinHalfTrack;
   const upperLen = lowerLen * geo.upperArmLengthRatio;
   return { lowerLen, upperLen };
 }
@@ -87,6 +91,8 @@ export function computePivotPositions(
   isLeftSide: boolean,
 ) {
   const sign = isLeftSide ? -1 : 1;
+  const hubOffset = geo.hubOffset ?? 0;
+  const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
 
   const { lowerLen, upperLen } = armLengths(geo);
   const lowerAngle = degToRad(geo.lowerArmAngle);
@@ -96,11 +102,11 @@ export function computePivotPositions(
   const { innerPivotHeightLower, innerPivotHeightUpper } =
     deriveInnerPivotHeights(geo, rideHeight, tyreRadius);
 
-  // Inner pivot positions (on the chassis)
-  const lowerInnerY = sign * (geo.trackWidth / 2 - lowerLen * Math.cos(lowerAngle));
+  // Inner pivot positions (on the chassis) — arms span from kingpin inward
+  const lowerInnerY = sign * (kingpinHalfTrack - lowerLen * Math.cos(lowerAngle));
   const lowerInnerZ = rideHeight + innerPivotHeightLower;
 
-  const upperInnerY = sign * (geo.trackWidth / 2 - upperLen * Math.cos(upperAngle));
+  const upperInnerY = sign * (kingpinHalfTrack - upperLen * Math.cos(upperAngle));
   const upperInnerZ = rideHeight + innerPivotHeightUpper;
 
   // Outer pivot positions (at the upright / hub)
@@ -194,6 +200,8 @@ export function computeGeometricCamber(
   const { lowerLen, upperLen } = armLengths(geo);
   if (lowerLen <= 0) return geo.staticCamber;
 
+  const hubOffset = geo.hubOffset ?? 0;
+  const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
   const kpiRad = degToRad(geo.kpiAngle);
   const halfUpright = geo.uprightHeight / 2;
   const lowerAngle = degToRad(geo.lowerArmAngle);
@@ -208,8 +216,9 @@ export function computeGeometricCamber(
   const upperInnerZ = upperBJZ_static - upperLen * Math.sin(upperAngle);
 
   // Inner pivot Y (lateral, measured outward from centreline, unsigned)
-  const lowerInnerY = geo.trackWidth / 2 - lowerLen * Math.cos(lowerAngle);
-  const upperInnerY = geo.trackWidth / 2 - upperLen * Math.cos(upperAngle);
+  // Arms span from kingpin (trackWidth/2 - hubOffset) inward
+  const lowerInnerY = kingpinHalfTrack - lowerLen * Math.cos(lowerAngle);
+  const upperInnerY = kingpinHalfTrack - upperLen * Math.cos(upperAngle);
 
   // New lower BJ Z after compression (wheel moves up relative to chassis)
   const newLowerBJZ = lowerBJZ_static + shockCompression;
@@ -272,12 +281,14 @@ export function computeAckermannSteering(
   trackWidth: number,
   wheelbase: number,
   ackermannArmLength: number,
+  hubOffset: number = 0,
 ): { leftAngle: number; rightAngle: number } {
   if (Math.abs(commandedAngle) < 1e-6 || ackermannArmLength <= 0) {
     return { leftAngle: commandedAngle, rightAngle: commandedAngle };
   }
 
-  const halfTrack = trackWidth / 2;
+  // Steering arms are at the kingpin, not wheel centre
+  const halfTrack = trackWidth / 2 - hubOffset;
   const cmdRad = degToRad(commandedAngle);
 
   // At rest, left arm tip is at:
@@ -337,10 +348,9 @@ export function updateKinematics(
 ): KinematicsResult {
   const ic = computeInstantCentre(geo, rideHeight, tyreRadius, isLeftSide);
 
-  // Contact patch includes hub offset (axle stub extends outward from kingpin)
+  // Contact patch at wheel centre (trackWidth is wheel-centre-to-wheel-centre)
   const halfTrack = geo.trackWidth / 2;
-  const hubOffset = geo.hubOffset ?? 0;
-  const contactPatchY = isLeftSide ? -(halfTrack + hubOffset) : (halfTrack + hubOffset);
+  const contactPatchY = isLeftSide ? -halfTrack : halfTrack;
   const rollCentreHeight = computeRollCentreHeight(ic, contactPatchY, 0);
 
   const camber = computeGeometricCamber(geo, rideHeight, tyreRadius, shockCompression);
