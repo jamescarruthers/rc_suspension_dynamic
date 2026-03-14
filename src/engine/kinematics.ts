@@ -328,7 +328,6 @@ export function solve3DCoupledBallJoints(
   const Q = sub(newLowerBJ, upperAxisPt);
   const Qe1 = dot(upperRadial, Q);
   const Qe2 = dot(upperTangent, Q);
-  const QdotAxis = dot(pivots.upperAxis, Q);
   const Q_total_sq = dot(Q, Q);
 
   const R_u = upperArcRadius;
