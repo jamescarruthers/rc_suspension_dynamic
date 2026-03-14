@@ -133,17 +133,14 @@ function App() {
     const frameTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05)
     lastTimeRef.current = timestamp
 
-    // The user-facing physicsHz controls the output rate, but the internal
-    // integration timestep is clamped to MAX_DT to guarantee numerical
-    // stability.  At low Hz (e.g. 100 Hz → dt=0.01) the tyre-spring /
-    // unsprung-mass mode (~100 Hz natural freq) exceeds the RK4 stability
-    // limit.  We sub-step internally so the integrator always sees a safe dt
-    // while the accumulator still drains at the user-selected rate.
-    const MAX_DT = 0.002 // 500 Hz internal minimum — safe for all modes
-    const outputDt = 1 / state.physicsHz
-    const subSteps = Math.max(1, Math.ceil(outputDt / MAX_DT))
-    const dt = outputDt / subSteps // actual integration dt (≤ MAX_DT)
-    accumRef.current += frameTime * state.playbackSpeed
+    // Fixed internal integration timestep.  Every Hz setting uses the same
+    // dt=0.002 so the physics is completely identical — switching Hz only
+    // changes how many steps run per frame (i.e. sim speed vs real-time).
+    // At 500 Hz the sim runs at 1:1 real-time; 1000 Hz = 2× speed, etc.
+    const INTERNAL_DT = 0.002
+    const dt = INTERNAL_DT
+    const simSpeedRatio = state.physicsHz * INTERNAL_DT // 500→1.0, 1000→2.0, 250→0.5
+    accumRef.current += frameTime * state.playbackSpeed * simSpeedRatio
     let steps = 0
     const maxStepsPerFrame = 200
 
@@ -175,16 +172,11 @@ function App() {
       }
     }
 
-    // Outer loop drains the accumulator by outputDt per iteration.
-    // Inner loop sub-steps with the (clamped) integration dt so that
-    // the integrator always sees a safe timestep (≤ MAX_DT).
-    while (accumRef.current >= outputDt && steps < maxStepsPerFrame) {
-      for (let sub = 0; sub < subSteps; sub++) {
-        const newState = doStep(localState)
-        prevLocalState = localState
-        localState = { ...localState, ...newState } as typeof state
-      }
-      accumRef.current -= outputDt
+    while (accumRef.current >= dt && steps < maxStepsPerFrame) {
+      const newState = doStep(localState)
+      prevLocalState = localState
+      localState = { ...localState, ...newState } as typeof state
+      accumRef.current -= dt
       steps++
     }
     // Interpolate between last two physics states for smooth rendering.
@@ -192,7 +184,7 @@ function App() {
     // without this, the variable step count per frame (e.g. 8 vs 9 at
     // 500Hz/60fps) causes visible stuttering.
     if (steps > 0) {
-      const alpha = accumRef.current / outputDt
+      const alpha = accumRef.current / dt
       const lerp = (a: number, b: number) => a + alpha * (b - a)
       const lerpCorner = (prev: typeof localState.corners.FL, curr: typeof localState.corners.FL) => ({
         ...curr,
