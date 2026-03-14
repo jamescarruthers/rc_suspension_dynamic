@@ -88,6 +88,63 @@ export function rotateAroundZ(v: Vector3, angle: number): Vector3 {
   };
 }
 
+// ─── Arbitrary axis rotation (Rodrigues formula) ────────────────────
+
+/**
+ * Rotate a point around an arbitrary axis using the Rodrigues rotation formula.
+ *
+ * @param point    - The point to rotate
+ * @param origin   - A point on the rotation axis
+ * @param axis     - Unit vector along the rotation axis
+ * @param angle    - Rotation angle in radians (right-hand rule)
+ * @returns The rotated point
+ */
+export function rotateAroundAxis(
+  point: Vector3,
+  origin: Vector3,
+  axis: Vector3,
+  angle: number,
+): Vector3 {
+  const v = sub(point, origin);
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const axDotV = dot(axis, v);
+
+  // v_rot = v*cos(θ) + (axis × v)*sin(θ) + axis*(axis·v)*(1 - cos(θ))
+  const axCrossV = cross(axis, v);
+  return add(origin, {
+    x: v.x * c + axCrossV.x * s + axis.x * axDotV * (1 - c),
+    y: v.y * c + axCrossV.y * s + axis.y * axDotV * (1 - c),
+    z: v.z * c + axCrossV.z * s + axis.z * axDotV * (1 - c),
+  });
+}
+
+/**
+ * Compute the perpendicular distance from a point to a line (defined by origin + direction).
+ */
+export function distancePointToLine(
+  point: Vector3,
+  lineOrigin: Vector3,
+  lineDir: Vector3,
+): number {
+  const v = sub(point, lineOrigin);
+  const c = cross(v, lineDir);
+  return length(c) / length(lineDir);
+}
+
+/**
+ * Find the closest point on a line to a given point.
+ */
+export function closestPointOnLine(
+  point: Vector3,
+  lineOrigin: Vector3,
+  lineDir: Vector3,
+): Vector3 {
+  const v = sub(point, lineOrigin);
+  const t = dot(v, lineDir) / dot(lineDir, lineDir);
+  return add(lineOrigin, scale(lineDir, t));
+}
+
 // ─── 2D line intersection ────────────────────────────────────────────
 
 export interface Point2D {

@@ -172,21 +172,51 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const { innerPivotHeightLower, innerPivotHeightUpper } =
     deriveInnerPivotHeights(geo, vehicle.rideHeight, tyreRadius)
 
+  // ── Dynamic ball joint positions from 3D solver ──
+  // The kinematics solver provides unsigned lateral, absolute vertical,
+  // and longitudinal offset from axle line.
+  const lowerBJ = cornerState.lowerBJPosition
+  const upperBJ = cornerState.upperBJPosition
+
+  // Convert to Three.js world coordinates
+  const outerLowerX = sideSign * lowerBJ.lateral
+  const outerLowerY = lowerBJ.vertical
+  const outerLowerZ = longitudinalOffset + lowerBJ.longitudinal
+  const outerUpperX = sideSign * upperBJ.lateral
+  const outerUpperY = upperBJ.vertical
+  const outerUpperZ = longitudinalOffset + upperBJ.longitudinal
+
+  // Dynamic camber and steering
+  const camber = cornerState.camberAngle
+  const steerAngle = cornerState.steeringAngle
+
   // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
   // Inner pivot positions on the chassis
-  // trackWidth = wheel-centre-to-wheel-centre; arms span from kingpin inward
   const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
   const innerPivotXLocal = sideSign * (kingpinHalfTrack - lowerWishboneLength)
   const innerLowerYLocal = chassisHeave + innerPivotHeightLower
   const innerUpperYLocal = chassisHeave + innerPivotHeightUpper
 
-  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset + geo.innerPivotSpread / 2)
-  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset - geo.innerPivotSpread / 2)
+  // Anti-dive/anti-squat: fore/aft inner pivots at different heights (§3.1, §4.4)
+  const sideViewAngleDeg = geo.antiDive || geo.antiSquat || 0
+  const sideViewAngleRad = (sideViewAngleDeg * Math.PI) / 180
+  const halfSpread = geo.innerPivotSpread / 2
+  const heightDiffHalf = halfSpread * Math.tan(sideViewAngleRad)
 
-  // Upper arm inner pivot
+  const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
+  const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
+
+  // Upper arm inner pivot — also inclined by anti-dive/anti-squat
   const innerUpperXLocal = sideSign * (kingpinHalfTrack - upperArmLength)
-  const innerPivotUpper = rot(innerUpperXLocal, innerUpperYLocal, longitudinalOffset)
+  const innerPivotUpperFore = rot(innerUpperXLocal, innerUpperYLocal + heightDiffHalf, longitudinalOffset + halfSpread)
+  const innerPivotUpperAft = rot(innerUpperXLocal, innerUpperYLocal - heightDiffHalf, longitudinalOffset - halfSpread)
+  // Midpoint for arm drawing
+  const innerPivotUpper: [number, number, number] = [
+    (innerPivotUpperFore[0] + innerPivotUpperAft[0]) / 2,
+    (innerPivotUpperFore[1] + innerPivotUpperAft[1]) / 2,
+    (innerPivotUpperFore[2] + innerPivotUpperAft[2]) / 2,
+  ]
 
   // Shock tower — derived from static lower mount position + shock vector
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
@@ -199,33 +229,10 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
-  // ── Lower ball joint — lower wishbone takes precedence ──
-  const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
-  const lowerJointOffsetY = staticLowerOuterY - tyreRadius
-  const outerLowerY = wheelY + lowerJointOffsetY
-  const outerLowerZ = longitudinalOffset
-
-  // Lower ball joint lateral (X) from arm length constraint
-  const innerMidLowerX = (innerPivotLowerFore[0] + innerPivotLowerAft[0]) / 2
-  const innerMidLowerY = (innerPivotLowerFore[1] + innerPivotLowerAft[1]) / 2
-  const lowerDY = outerLowerY - innerMidLowerY
-  const lowerDXSq = lowerWishboneLength * lowerWishboneLength - lowerDY * lowerDY
-  const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
-  const outerLowerX = innerMidLowerX + sideSign * lowerDX
-
-  // Dynamic camber and steering
-  const camber = cornerState.camberAngle
-  const steerAngle = cornerState.steeringAngle
-
-  // ── Upper ball joint derived from upright attached to lower ball joint ──
-  // Lower wishbone determines lower ball joint, then the upright (rigid link)
-  // sets upper ball joint position. Upper arm angle follows.
+  // Upright angle for stub axle direction
   const kpiRad = (geo.kpiAngle * Math.PI) / 180
   const camberChangeRad = ((camber - geo.staticCamber) * Math.PI) / 180
   const uprightAngle = kpiRad - camberChangeRad
-  const outerUpperX = outerLowerX - sideSign * geo.uprightHeight * Math.sin(uprightAngle)
-  const outerUpperY = outerLowerY + geo.uprightHeight * Math.cos(uprightAngle)
-  const outerUpperZ = longitudinalOffset
 
   // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
   const frac = shock.damperAttachmentRatio
@@ -236,18 +243,50 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // Kingpin midpoint (centre of upright)
   const kingpinMidX = (outerLowerX + outerUpperX) / 2
   const kingpinMidY = (outerLowerY + outerUpperY) / 2
-  // Wheel centre is at the stub tip, hubOffset outward from kingpin
-  const wheelXActual = kingpinMidX + sideSign * (geo.hubOffset ?? 0)
+  const kingpinMidZ = (outerLowerZ + outerUpperZ) / 2
 
-  // ── Steering arm ──
-  // Extends from the lower ball joint inward toward rear axle centreline.
-  // The arm angle from lateral axis (at rest) points toward the rear axle.
+  // ── Stub axle — perpendicular to upright face (§3.4) ──
+  // Use dynamic caster from 3D solver instead of static caster angle
+  const dynamicCasterRad = (cornerState.dynamicCaster * Math.PI) / 180
+  const stubDirX = sideSign * Math.cos(uprightAngle) * Math.cos(dynamicCasterRad)
+  const stubDirY = Math.sin(uprightAngle)
+  const stubDirZ = -sideSign * Math.cos(uprightAngle) * Math.sin(dynamicCasterRad)
+  const hubOffset = geo.hubOffset ?? 0
+  const wheelXActual = kingpinMidX + stubDirX * hubOffset
+  const wheelYActual = kingpinMidY + stubDirY * hubOffset
+  const wheelZActual = kingpinMidZ + stubDirZ * hubOffset
+
+  // ── Kingpin axis ground intercept (§3.3) ──
+  // Extend the line from lower BJ through upper BJ to Y=0 (ground plane)
+  const kingpinDY = outerUpperY - outerLowerY
+  const kingpinDX = outerUpperX - outerLowerX
+  const kingpinDZ = outerUpperZ - outerLowerZ
+  let kingpinGroundX = outerLowerX
+  let kingpinGroundZ = outerLowerZ
+  if (Math.abs(kingpinDY) > 1e-6) {
+    const tGround = -outerLowerY / kingpinDY
+    kingpinGroundX = outerLowerX + tGround * kingpinDX
+    kingpinGroundZ = outerLowerZ + tGround * kingpinDZ
+  }
+
+  // ── Contact patch with camber shift (§3.8) ──
+  // Contact patch shifts laterally by R_loaded × sin(camber)
+  const camberRad = (camber * Math.PI) / 180
+  const contactPatchShift = tyreRadius * Math.sin(camberRad) * sideSign
+  const contactPatchX = wheelXActual + contactPatchShift
+  const contactPatchZ = wheelZActual
+
+  // ── Steering arm (§3.2, §3.11) ──
   const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
   const steerRad = (steerAngle * Math.PI) / 180
   const armAngle = ackermannRestAngle + steerRad
-  const armTipX = outerLowerX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
-  const armTipZ = outerLowerZ - geo.ackermannArmLength * Math.sin(armAngle)
-  const armTipY = outerLowerY
+  // A_ST origin is on the upright at lower ball joint height (per typical double-wishbone)
+  const steeringArmBaseX = outerLowerX
+  const steeringArmBaseY = outerLowerY
+  const steeringArmBaseZ = outerLowerZ
+  const armTipX = steeringArmBaseX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
+  const armTipZ = steeringArmBaseZ - geo.ackermannArmLength * Math.sin(armAngle)
+  const armTipY = steeringArmBaseY
 
   return (
     <group>
@@ -260,10 +299,10 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         toe={(geo.staticToe + steerAngle) * sideSign}
       />
 
-      {/* Contact patch shadow on ground */}
+      {/* Contact patch shadow on ground — shifted by camber (§3.8) */}
       {!cornerState.wheelAirborne && (
         <ContactPatchShadow
-          position={[wheelXActual, 0.1, wheelZ]}
+          position={[contactPatchX, 0.1, contactPatchZ]}
           width={vehicle.tyreWidth}
           length={tyreRadius * 0.4}
         />
@@ -277,7 +316,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         </mesh>
       )}
 
-      {/* Lower wishbone - A-shape */}
+      {/* Lower wishbone - A-shape (§3.1) */}
       <Line
         points={[
           innerPivotLowerFore,
@@ -295,7 +334,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         lineWidth={2}
       />
 
-      {/* Upper arm */}
+      {/* Upper arm (§3.1) */}
       <Line
         points={[
           innerPivotUpper,
@@ -305,7 +344,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         lineWidth={1.5}
       />
 
-      {/* Hub carrier / upright */}
+      {/* Hub carrier / upright — connects upper and lower ball joints (§3.2) */}
       <Line
         points={[
           [outerLowerX, outerLowerY, outerLowerZ],
@@ -315,11 +354,13 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         lineWidth={1.5}
       />
 
-      {/* Kingpin axis (dashed - approximated with shorter segment) */}
+      {/* Kingpin axis — extended to ground plane and above upright (§3.3) */}
       <Line
         points={[
-          [outerLowerX, outerLowerY - 10, outerLowerZ],
-          [outerUpperX, outerUpperY + 10, outerUpperZ],
+          [kingpinGroundX, 0, kingpinGroundZ],
+          [outerUpperX + (outerUpperX - outerLowerX) * 0.3,
+           outerUpperY + (outerUpperY - outerLowerY) * 0.3,
+           outerUpperZ + (outerUpperZ - outerLowerZ) * 0.3],
         ]}
         color={WHITE}
         lineWidth={0.5}
@@ -328,16 +369,19 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         gapSize={3}
       />
 
-      {/* Axle stub from kingpin centre outward to wheel hub */}
+      {/* Kingpin ground intercept marker — shows scrub radius (§3.3) */}
+      <JointSphere position={[kingpinGroundX, 0.5, kingpinGroundZ]} color="#FF4444" size={1} />
+
+      {/* Axle stub — perpendicular to upright face (§3.4) */}
       <Line
         points={[
-          [kingpinMidX, kingpinMidY, longitudinalOffset],
-          [kingpinMidX + sideSign * geo.hubOffset, kingpinMidY, longitudinalOffset],
+          [kingpinMidX, kingpinMidY, kingpinMidZ],
+          [wheelXActual, wheelYActual, wheelZActual],
         ]}
         color={WHITE}
         lineWidth={1.5}
       />
-      <JointSphere position={[kingpinMidX, kingpinMidY, longitudinalOffset]} color={WHITE} size={1.5} />
+      <JointSphere position={[kingpinMidX, kingpinMidY, kingpinMidZ]} color={WHITE} size={1.5} />
 
       {/* Shock absorber body */}
       <Line
@@ -366,10 +410,10 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       <JointSphere position={innerPivotUpper} color={LIGHT_CYAN} />
       <JointSphere position={[outerUpperX, outerUpperY, outerUpperZ]} color={LIGHT_CYAN} />
 
-      {/* Steering arm */}
+      {/* Steering arm — integral to upright, extends to A_ST (tie rod outer end) (§3.2, §3.11) */}
       <Line
         points={[
-          [outerLowerX, outerLowerY, outerLowerZ],
+          [steeringArmBaseX, steeringArmBaseY, steeringArmBaseZ],
           [armTipX, armTipY, armTipZ],
         ]}
         color={GREEN}
@@ -672,7 +716,6 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
 
   const { innerPivotHeightLower } = deriveInnerPivotHeights(geo, vehicle.rideHeight, vehicle.tyreRadius)
-  const { lowerLen: lowerWishboneLength } = armLengths(geo)
   const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
 
   const rollRad = (rollAngle * Math.PI) / 180
@@ -685,28 +728,18 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
   const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
-  const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
-  const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
 
-  // Compute arm tip positions for each side
+  // Compute arm tip positions for each side using dynamic BJ positions from state
   const computeArmTip = (cornerState: typeof leftCorner, sideSign: number) => {
-    const lowerJointOffsetY = staticLowerOuterY - vehicle.tyreRadius
-    const outerLowerY = cornerState.wheelPosition + lowerJointOffsetY
-
-    const innerPivotXLocal = sideSign * (kingpinHalfTrack - lowerWishboneLength)
-    const innerLowerYLocal = chassisHeave + innerPivotHeightLower
-    const innerMidX = rot(innerPivotXLocal, innerLowerYLocal, z)[0]
-    const innerMidY = rot(innerPivotXLocal, innerLowerYLocal, z)[1]
-
-    const lowerDY = outerLowerY - innerMidY
-    const lowerDXSq = lowerWishboneLength * lowerWishboneLength - lowerDY * lowerDY
-    const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
-    const outerLowerX = innerMidX + sideSign * lowerDX
+    const lowerBJ = cornerState.lowerBJPosition
+    const outerLowerX = sideSign * lowerBJ.lateral
+    const outerLowerY = lowerBJ.vertical
+    const outerLowerZ = z + lowerBJ.longitudinal
 
     const steerRad = (cornerState.steeringAngle * Math.PI) / 180
     const armAngle = ackermannRestAngle + steerRad
     const tipX = outerLowerX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
-    const tipZ = z - geo.ackermannArmLength * Math.sin(armAngle)
+    const tipZ = outerLowerZ - geo.ackermannArmLength * Math.sin(armAngle)
     return [tipX, outerLowerY, tipZ] as [number, number, number]
   }
 

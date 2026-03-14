@@ -28,9 +28,9 @@ import type {
 } from '../types/suspension';
 import { CORNERS } from '../types/suspension';
 import { computeTyreForce } from './tyreContact';
-import { computeCornerForces, computeSwayBarForce, computeMotionRatio } from './forces';
+import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeHydraulicForces } from './hydraulics';
-import { updateKinematics, computeAckermannSteering } from './kinematics';
+import { updateKinematics, computeAckermannSteering, computeGeometricMotionRatio } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 // ── Conversion helpers ──────────────────────────────────────────────
@@ -359,7 +359,8 @@ export function stepRapierSimulation(
   const suspForces: Record<Corner, number> = { FL: 0, FR: 0, RL: 0, RR: 0 };
   for (const c of CORNERS) {
     const shock = isFront(c) ? frontShock : rearShock;
-    const motionRatio = computeMotionRatio(shock);
+    const geo = isFront(c) ? frontGeo : rearGeo;
+    const motionRatio = computeGeometricMotionRatio(shock, geo, vehicle.rideHeight, tyreRadius, newCorners[c].shockCompression);
     const forces = computeCornerForces(
       newCorners[c].shockCompression,
       newCorners[c].shockVelocity,
@@ -455,8 +456,16 @@ export function stepRapierSimulation(
 
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
-    const kin = updateKinematics(geo, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
+    const shock = isFront(c) ? frontShock : rearShock;
+    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
     newCorners[c].camberAngle = kin.camber;
+    newCorners[c].dynamicKPI = kin.dynamicKPI;
+    newCorners[c].dynamicCaster = kin.dynamicCaster;
+    newCorners[c].scrubRadius = kin.scrubRadius;
+    newCorners[c].casterTrail = kin.casterTrail;
+    newCorners[c].motionRatio = kin.motionRatio;
+    newCorners[c].lowerBJPosition = { lateral: kin.ballJoints.lowerBJ.y, vertical: kin.ballJoints.lowerBJ.z, longitudinal: kin.ballJoints.lowerBJ.x };
+    newCorners[c].upperBJPosition = { lateral: kin.ballJoints.upperBJ.y, vertical: kin.ballJoints.upperBJ.z, longitudinal: kin.ballJoints.upperBJ.x };
     const ack = isFront(c) ? frontAck : rearAck;
     newCorners[c].steeringAngle = isLeft(c) ? ack.leftAngle : ack.rightAngle;
     if (isFront(c)) frontRCH += kin.rollCentreHeight * 0.5;
@@ -667,5 +676,12 @@ function defaultCornerState(): PerCornerState {
     camberAngle: 0,
     steeringAngle: 0,
     wheelAirborne: false,
+    dynamicKPI: 0,
+    dynamicCaster: 0,
+    scrubRadius: 0,
+    casterTrail: 0,
+    motionRatio: 0,
+    lowerBJPosition: { lateral: 0, vertical: 0, longitudinal: 0 },
+    upperBJPosition: { lateral: 0, vertical: 0, longitudinal: 0 },
   };
 }
