@@ -19,6 +19,7 @@ export const vehicle: VehicleParams = {
   tyreDamping: 0.03,
   tyreRadius: 27,
   tyreWidth: 30,
+  inertiaScaling: 0.3,
 };
 
 export const frontGeometry: AxleGeometry = {
@@ -70,6 +71,7 @@ export const frontShock: AxleShock = {
   dampingRebound: 0.12,
   maxDroop: 25,
   maxBump: 18,
+  bumpStopStiffness: 50,
 };
 
 export const rearShock: AxleShock = {
@@ -81,6 +83,7 @@ export const rearShock: AxleShock = {
   dampingRebound: 0.14,
   maxDroop: 22,
   maxBump: 20,
+  bumpStopStiffness: 50,
 };
 
 export const frontSwayBar: AxleSwayBar = {

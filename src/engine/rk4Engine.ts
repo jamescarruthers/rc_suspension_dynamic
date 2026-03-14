@@ -38,7 +38,7 @@ import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeAccelerations, computeLeverArms, type CornerForceInputs } from './dynamics';
 import { computeHydraulicForces } from './hydraulics';
 import { updateKinematics, computeRackSteering, computeGeometricMotionRatio, computeSteeringCamberGain, computeAckermannPercent } from './kinematics';
-import { getGroundHeight, type CornerPositions } from './roadSurface';
+import { getGroundHeightAndVelocity, type CornerPositions } from './roadSurface';
 
 // ─── State vector indices ────────────────────────────────────────────────────
 
@@ -231,19 +231,22 @@ export function stepRK4Simulation(
       RL: y[S_VWHEEL_RL], RR: y[S_VWHEEL_RR],
     };
 
-    // Get ground heights at evaluation time t
-    const groundHeights = getGroundHeight(
+    // Get ground heights and velocities at evaluation time t
+    const roadParams = {
+      height: state.roadBumpHeight,
+      width: state.roadBumpWidth,
+      speed: state.roadSpeed,
+      frequency: state.roadFrequency,
+      targetCorner: state.roadTargetCorner as any,
+    };
+    const ground = getGroundHeightAndVelocity(
       state.roadSurfaceType as any,
-      {
-        height: state.roadBumpHeight,
-        width: state.roadBumpWidth,
-        speed: state.roadSpeed,
-        frequency: state.roadFrequency,
-        targetCorner: state.roadTargetCorner as any,
-      },
+      roadParams,
       cornerPos,
       t,
     );
+    const groundHeights = ground.heights;
+    const groundVelocities = ground.velocities;
 
     // Corner forces accumulator
     const cornerForces: Record<Corner, CornerForceInputs> = {
@@ -262,6 +265,7 @@ export function stepRK4Simulation(
       const tyre = computeTyreForce(
         wheelPos[c], wheelVel[c], groundHeights[c],
         tyreRadius, vehicle.tyreSpringRate, vehicle.tyreDamping,
+        groundVelocities[c],
       );
       cornerForces[c].tyreForce = tyre.force;
 
@@ -338,7 +342,7 @@ export function stepRK4Simulation(
   rk4.step(sv, state.time, dt, derivs);
 
   // Post-step: enforce hard ground constraint
-  const groundHeights = getGroundHeight(
+  const postGround = getGroundHeightAndVelocity(
     state.roadSurfaceType as any,
     {
       height: state.roadBumpHeight,
@@ -350,6 +354,8 @@ export function stepRK4Simulation(
     cornerPos,
     newTime,
   );
+  const groundHeights = postGround.heights;
+  const postGroundVelocities = postGround.velocities;
 
   for (let i = 0; i < 4; i++) {
     const corner = CORNERS[i];
@@ -382,6 +388,7 @@ export function stepRK4Simulation(
     const tyre = computeTyreForce(
       sv[WHEEL_POS_INDICES[idx]], sv[WHEEL_VEL_INDICES[idx]], groundHeights[c],
       tyreRadius, vehicle.tyreSpringRate, vehicle.tyreDamping,
+      postGroundVelocities[c],
     );
     newCorners[c].tyreContactForce = tyre.force;
     newCorners[c].tyreDeflection = tyre.deflection;

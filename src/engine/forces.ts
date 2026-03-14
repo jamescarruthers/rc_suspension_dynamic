@@ -10,11 +10,14 @@ export interface CornerForces {
   totalSuspForce: number; // N (spring + damper + bumpstop)
 }
 
-/** Bump stop ramp coefficient (N/mm²) */
-const BUMP_STOP_COEFF = 50;
+/** Default bump stop ramp coefficient (N/mm²) */
+const DEFAULT_BUMP_STOP_COEFF = 50;
 
 /** Bump stop engagement threshold (fraction of travel) */
 const BUMP_STOP_THRESHOLD = 0.85;
+
+/** Bump stop velocity damping coefficient (N·s/mm), proportional to penetration */
+const BUMP_STOP_DAMPING = 0.5;
 
 /**
  * Compute the motion ratio for a shock/spring assembly.
@@ -62,21 +65,29 @@ export function computeCornerForces(
   // maxBump/maxDroop are shock travel limits, so compare against
   // actual shock travel (wheel travel × MR). The resulting force at
   // the shock is then transferred to the wheel via the motion ratio.
+  // Includes both quadratic stiffness and velocity-proportional damping
+  // (damping scales with penetration for progressive energy absorption).
   let bumpStopForce = 0;
   const shockTravel = shockCompression * motionRatio;
+  const bumpStopCoeff = shock.bumpStopStiffness ?? DEFAULT_BUMP_STOP_COEFF;
+  const shockTravelVel = shockVelocity * motionRatio;
 
   const bumpLimit = shock.maxBump;
   const bumpThreshold = bumpLimit * BUMP_STOP_THRESHOLD;
   if (shockTravel > bumpThreshold && bumpLimit > 0) {
     const penetration = shockTravel - bumpThreshold;
-    bumpStopForce += BUMP_STOP_COEFF * penetration * penetration * motionRatio;
+    bumpStopForce += bumpStopCoeff * penetration * penetration * motionRatio;
+    // Velocity damping proportional to penetration depth
+    bumpStopForce += BUMP_STOP_DAMPING * penetration * shockTravelVel * motionRatio;
   }
 
   const droopLimit = shock.maxDroop;
   const droopThreshold = droopLimit * BUMP_STOP_THRESHOLD;
   if (shockTravel < -droopThreshold && droopLimit > 0) {
     const penetration = -shockTravel - droopThreshold;
-    bumpStopForce -= BUMP_STOP_COEFF * penetration * penetration * motionRatio;
+    bumpStopForce -= bumpStopCoeff * penetration * penetration * motionRatio;
+    // Velocity damping (note: shockTravelVel is negative in droop)
+    bumpStopForce -= BUMP_STOP_DAMPING * penetration * (-shockTravelVel) * motionRatio;
   }
 
   const totalSuspForce = springForce + damperForce + bumpStopForce;

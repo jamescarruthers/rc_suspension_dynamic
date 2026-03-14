@@ -23,6 +23,7 @@ const defaultVehicle: VehicleParams = {
   tyreDamping: 0.05,
   tyreRadius: 42,
   tyreWidth: 45,
+  inertiaScaling: 0.3,
 };
 
 const defaultFrontGeometry: AxleGeometry = {
@@ -74,6 +75,7 @@ const defaultFrontShock: AxleShock = {
   dampingRebound: 0.18,
   maxDroop: 30,
   maxBump: 22,
+  bumpStopStiffness: 50,
 };
 
 const defaultRearShock: AxleShock = {
@@ -85,6 +87,7 @@ const defaultRearShock: AxleShock = {
   dampingRebound: 0.22,
   maxDroop: 28,
   maxBump: 25,
+  bumpStopStiffness: 50,
 };
 
 const defaultFrontSwayBar: AxleSwayBar = {
