@@ -1,0 +1,15 @@
+{
+  "name": "rk4-wasm",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "rk4_wasm_bg.wasm",
+    "rk4_wasm.js",
+    "rk4_wasm.d.ts"
+  ],
+  "main": "rk4_wasm.js",
+  "types": "rk4_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
