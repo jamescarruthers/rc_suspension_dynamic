@@ -104,6 +104,12 @@ export interface PerCornerState {
   camberAngle: number;
   steeringAngle: number;          // degrees, per-wheel after Ackermann
   wheelAirborne: boolean;
+  // Derived geometry (SAE J670 §3.3)
+  dynamicKPI: number;             // degrees, kingpin inclination from ball joint positions
+  dynamicCaster: number;          // degrees, caster angle from ball joint positions
+  scrubRadius: number;            // mm, lateral offset of kingpin ground intercept from contact patch
+  casterTrail: number;            // mm, longitudinal offset of kingpin ground intercept from contact patch
+  motionRatio: number;            // instantaneous motion ratio (varies with travel)
 }
 
 // ─── Full simulation state ──────────────────────────────────────────
