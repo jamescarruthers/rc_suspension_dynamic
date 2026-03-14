@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Line } from '@react-three/drei'
 import { useVehicleStore } from '../../store/useVehicleStore'
 import { useSimulationStore } from '../../store/useSimulationStore'
-import { armLengths, deriveInnerPivotHeights } from '../../engine/kinematics'
+import { armLengths, deriveInnerPivotHeights, computeAckermannArmLength } from '../../engine/kinematics'
 import type { Corner } from '../../types/suspension'
 
 const CYAN = '#00FFE0'
@@ -138,6 +138,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const vehicle = useVehicleStore((s) => s.vehicle)
   const isFront = corner === 'FL' || corner === 'FR'
   const geo = useVehicleStore((s) => isFront ? s.frontGeometry : s.rearGeometry)
+  const rack = useVehicleStore((s) => isFront ? s.frontSteeringRack : s.rearSteeringRack)
   const shock = useVehicleStore((s) => isFront ? s.frontShock : s.rearShock)
   const cornerState = useSimulationStore((s) => s.corners[corner])
   const chassisHeave = useSimulationStore((s) => s.chassisHeave)
@@ -340,8 +341,9 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const steeringArmBaseX = outerLowerX
   const steeringArmBaseY = outerLowerY
   const steeringArmBaseZ = outerLowerZ
-  const armTipX = steeringArmBaseX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
-  const armTipZ = steeringArmBaseZ - geo.ackermannArmLength * Math.sin(armAngle)
+  const ackermannArmLength = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
+  const armTipX = steeringArmBaseX - sideSign * ackermannArmLength * Math.cos(armAngle)
+  const armTipZ = steeringArmBaseZ - ackermannArmLength * Math.sin(armAngle)
   const armTipY = steeringArmBaseY
 
   return (
@@ -793,8 +795,9 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
 
     const steerRad = (cornerState.steeringAngle * Math.PI) / 180
     const armAngle = ackermannRestAngle + steerRad
-    const tipX = outerLowerX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
-    const tipZ = outerLowerZ - geo.ackermannArmLength * Math.sin(armAngle)
+    const armLen = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
+    const tipX = outerLowerX - sideSign * armLen * Math.cos(armAngle)
+    const tipZ = outerLowerZ - armLen * Math.sin(armAngle)
     return [tipX, outerLowerY, tipZ] as [number, number, number]
   }
 
@@ -804,7 +807,8 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   // Steering rack — translates laterally with steering input
   // Rack displacement from commanded angle (same formula as kinematics solver)
   const cmdRad = (steeringAngle * Math.PI) / 180
-  const rackDisplacement = geo.ackermannArmLength * Math.sin(cmdRad)
+  const ackermannArmLength = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
+  const rackDisplacement = ackermannArmLength * Math.sin(cmdRad)
   const halfRackWidth = rack.rackWidth / 2
   const rackY = chassisHeave + rack.rackHeight
   const rackZ = z + rack.rackForwardOffset
