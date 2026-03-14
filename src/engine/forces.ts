@@ -18,11 +18,11 @@ const BUMP_STOP_THRESHOLD = 0.85;
 
 /**
  * Compute the motion ratio for a shock/spring assembly.
- * Simplified: ratio of shock mount position on arm to total arm length.
+ * The damper attachment ratio directly gives the motion ratio (fraction
+ * of lower arm length where the shock mounts).
  */
-export function computeMotionRatio(shock: AxleShock, armLength: number): number {
-  if (armLength <= 0) return 1;
-  return shock.mountPosition / armLength;
+export function computeMotionRatio(shock: AxleShock): number {
+  return shock.damperAttachmentRatio;
 }
 
 /**

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Line } from '@react-three/drei'
 import { useVehicleStore } from '../../store/useVehicleStore'
 import { useSimulationStore } from '../../store/useSimulationStore'
+import { deriveUpperArmAngle } from '../../engine/kinematics'
 import type { Corner } from '../../types/suspension'
 
 const CYAN = '#00FFE0'
@@ -164,6 +165,10 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   const tyreRadius = vehicle.tyreRadius
 
+  // ── Derived angles ──
+  const upperArmAngleDeg = deriveUpperArmAngle(geo)
+  const upperArmLength = geo.lowerWishboneLength * geo.upperArmLengthRatio
+
   // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
   // Inner pivot positions on the chassis
@@ -175,20 +180,23 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset - geo.innerPivotSpread / 2)
 
   // Upper arm inner pivot
-  const upperArmLength = geo.lowerWishboneLength * geo.upperArmLengthRatio
   const innerUpperXLocal = sideSign * (geo.trackWidth / 2 - upperArmLength)
   const innerPivotUpper = rot(innerUpperXLocal, innerUpperYLocal, longitudinalOffset)
 
-  // Shock tower (chassis-attached)
-  const shockTowerXLocal = innerPivotXLocal + sideSign * shock.mountPosition * 0.5 -
-    sideSign * shock.shockLength * Math.sin((shock.shockAngle * Math.PI) / 180) * 0.3
-  const shockTowerYLocal = chassisHeave + shock.towerHeight
+  // Shock tower — derived from static lower mount position + shock vector
+  const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
+  const shockAngleRad = (shock.shockAngle * Math.PI) / 180
+  const staticLowerMountXLocal = innerPivotXLocal +
+    sideSign * geo.lowerWishboneLength * Math.cos(lowerArmAngleRad) * shock.damperAttachmentRatio
+  const staticLowerMountYLocal = geo.innerPivotHeightLower +
+    geo.lowerWishboneLength * Math.sin(lowerArmAngleRad) * shock.damperAttachmentRatio
+  const shockTowerXLocal = staticLowerMountXLocal - sideSign * shock.shockLength * Math.sin(shockAngleRad)
+  const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
   // ── Outer ball joints — maintain constant arm lengths (rigid links) ──
   // Compute static ball joint heights at design ride height from arm geometry
-  const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
-  const upperArmAngleRad = (geo.upperArmAngle * Math.PI) / 180
+  const upperArmAngleRad = (upperArmAngleDeg * Math.PI) / 180
   const staticLowerOuterY = geo.innerPivotHeightLower + geo.lowerWishboneLength * Math.sin(lowerArmAngleRad)
   const staticUpperOuterY = geo.innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
 
@@ -221,7 +229,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const outerUpperX = innerPivotUpper[0] + sideSign * upperDX
 
   // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
-  const frac = shock.mountPosition / geo.lowerWishboneLength
+  const frac = shock.damperAttachmentRatio
   const shockLowerX = innerPivotLowerFore[0] + (outerLowerX - innerPivotLowerFore[0]) * frac
   const shockLowerY = innerPivotLowerFore[1] + (outerLowerY - innerPivotLowerFore[1]) * frac
   const shockLowerZ = innerPivotLowerFore[2] + (outerLowerZ - innerPivotLowerFore[2]) * frac

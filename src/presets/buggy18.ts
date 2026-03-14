@@ -25,7 +25,7 @@ export const frontGeometry: AxleGeometry = {
   lowerWishboneLength: 68,
   upperArmLengthRatio: 0.55,
   lowerArmAngle: 0,
-  upperArmAngle: -8,
+  uprightHeight: 27.8,
   innerPivotHeightLower: 12,
   innerPivotHeightUpper: 45,
   innerPivotSpread: 32,
@@ -42,7 +42,7 @@ export const rearGeometry: AxleGeometry = {
   lowerWishboneLength: 72,
   upperArmLengthRatio: 0.50,
   lowerArmAngle: 2,
-  upperArmAngle: -10,
+  uprightHeight: 19.2,
   innerPivotHeightLower: 14,
   innerPivotHeightUpper: 42,
   innerPivotSpread: 35,
@@ -56,8 +56,7 @@ export const rearGeometry: AxleGeometry = {
 
 export const frontShock: AxleShock = {
   shockLength: 90,
-  mountPosition: 42,
-  towerHeight: 72,
+  damperAttachmentRatio: 0.62,
   shockAngle: 15,
   springRate: 7.5,
   dampingCompression: 0.12,
@@ -68,8 +67,7 @@ export const frontShock: AxleShock = {
 
 export const rearShock: AxleShock = {
   shockLength: 100,
-  mountPosition: 48,
-  towerHeight: 78,
+  damperAttachmentRatio: 0.67,
   shockAngle: 10,
   springRate: 9.0,
   dampingCompression: 0.15,
