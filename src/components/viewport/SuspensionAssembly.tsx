@@ -167,7 +167,6 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   // ── Derived lengths & angles ──
   const lowerWishboneLength = geo.lowerWishboneRatio * geo.trackWidth / 2
-  const upperArmAngleDeg = geo.upperArmAngle
   const upperArmLength = lowerWishboneLength * geo.upperArmLengthRatio
 
   // Derive inner pivot heights from user-facing params
@@ -199,27 +198,13 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
-  // ── Outer ball joints — maintain constant arm lengths (rigid links) ──
-  // Compute static ball joint heights at design ride height from arm geometry
-  const upperArmAngleRad = (upperArmAngleDeg * Math.PI) / 180
+  // ── Lower ball joint — lower wishbone takes precedence ──
   const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
-  const staticUpperOuterY = innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
-
-  // Fixed vertical offsets of ball joints relative to wheel centre
   const lowerJointOffsetY = staticLowerOuterY - tyreRadius
-  const upperJointOffsetY = staticUpperOuterY - tyreRadius
-
-  // Ball joint vertical positions (move with wheel)
   const outerLowerY = wheelY + lowerJointOffsetY
-  const outerUpperY = wheelY + upperJointOffsetY
   const outerLowerZ = longitudinalOffset
-  const outerUpperZ = longitudinalOffset
 
-  // Compute ball joint lateral (X) positions from arm length constraint.
-  // The arm is a rigid link — its length cannot change. Given the inner pivot
-  // position (chassis-attached) and the ball joint Y (from wheel travel),
-  // solve for the lateral position: dx = sqrt(L² - dy²).
-  // Use the midpoint of the A-arm inner pivots for the lower arm constraint.
+  // Lower ball joint lateral (X) from arm length constraint
   const innerMidLowerX = (innerPivotLowerFore[0] + innerPivotLowerAft[0]) / 2
   const innerMidLowerY = (innerPivotLowerFore[1] + innerPivotLowerAft[1]) / 2
   const lowerDY = outerLowerY - innerMidLowerY
@@ -227,20 +212,24 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
   const outerLowerX = innerMidLowerX + sideSign * lowerDX
 
-  // Upper arm — single inner pivot
-  const upperDY = outerUpperY - innerPivotUpper[1]
-  const upperDXSq = upperArmLength * upperArmLength - upperDY * upperDY
-  const upperDX = upperDXSq > 0 ? Math.sqrt(upperDXSq) : upperArmLength
-  const outerUpperX = innerPivotUpper[0] + sideSign * upperDX
+  // Dynamic camber
+  const camber = cornerState.camberAngle
+
+  // ── Upper ball joint derived from upright attached to lower ball joint ──
+  // Lower wishbone determines lower ball joint, then the upright (rigid link)
+  // sets upper ball joint position. Upper arm angle follows.
+  const kpiRad = (geo.kpiAngle * Math.PI) / 180
+  const camberChangeRad = ((camber - geo.staticCamber) * Math.PI) / 180
+  const uprightAngle = kpiRad - camberChangeRad
+  const outerUpperX = outerLowerX - sideSign * geo.uprightHeight * Math.sin(uprightAngle)
+  const outerUpperY = outerLowerY + geo.uprightHeight * Math.cos(uprightAngle)
+  const outerUpperZ = longitudinalOffset
 
   // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
   const frac = shock.damperAttachmentRatio
   const shockLowerX = innerPivotLowerFore[0] + (outerLowerX - innerPivotLowerFore[0]) * frac
   const shockLowerY = innerPivotLowerFore[1] + (outerLowerY - innerPivotLowerFore[1]) * frac
   const shockLowerZ = innerPivotLowerFore[2] + (outerLowerZ - innerPivotLowerFore[2]) * frac
-
-  // Dynamic camber
-  const camber = cornerState.camberAngle
 
   // Wheel lateral position follows the lower ball joint (track changes with travel)
   const wheelXActual = outerLowerX
@@ -252,7 +241,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         position={[wheelXActual, wheelY, wheelZ]}
         radius={tyreRadius}
         width={vehicle.tyreWidth}
-        camber={camber}
+        camber={-camber * sideSign}
         toe={geo.staticToe * sideSign}
       />
 
