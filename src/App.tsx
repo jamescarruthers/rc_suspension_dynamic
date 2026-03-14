@@ -105,28 +105,10 @@ function App() {
     const veh = useVehicleStore.getState()
     const useRapier = state.physicsEngine === 'rapier'
 
-    // Handle physicsHz change: reset accumulator and re-equilibrate so the
-    // chassis doesn't shift height when switching Hz.
+    // Handle physicsHz change: reset accumulator to prevent burst stepping.
     if (state.physicsHz !== prevHzRef.current) {
       prevHzRef.current = state.physicsHz
       accumRef.current = 0
-      // Re-run equilibrium from the current position so that the integrator
-      // at the new dt starts from a consistent rest state.
-      const eqState = findStaticEquilibrium(
-        veh.vehicle,
-        veh.frontGeometry,
-        veh.rearGeometry,
-        veh.frontShock,
-        veh.rearShock,
-        veh.frontSwayBar,
-        veh.rearSwayBar,
-        veh.frontSteeringRack,
-        veh.rearSteeringRack,
-        veh.hydraulic,
-        5000,
-        stepRK4Simulation,
-      )
-      useSimulationStore.setState({ ...eqState, time: state.time })
     }
 
     // Handle engine switch: rebuild Rapier world or clean up
@@ -151,10 +133,16 @@ function App() {
     const frameTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05)
     lastTimeRef.current = timestamp
 
-    // Fixed physics timestep from physicsHz; playbackSpeed scales the
-    // accumulator so we run more/fewer steps per frame while keeping dt
-    // constant (preserves numerical stability of RK4 integration).
-    const dt = 1 / state.physicsHz
+    // The user-facing physicsHz controls the output rate, but the internal
+    // integration timestep is clamped to MAX_DT to guarantee numerical
+    // stability.  At low Hz (e.g. 100 Hz → dt=0.01) the tyre-spring /
+    // unsprung-mass mode (~100 Hz natural freq) exceeds the RK4 stability
+    // limit.  We sub-step internally so the integrator always sees a safe dt
+    // while the accumulator still drains at the user-selected rate.
+    const MAX_DT = 0.002 // 500 Hz internal minimum — safe for all modes
+    const outputDt = 1 / state.physicsHz
+    const subSteps = Math.max(1, Math.ceil(outputDt / MAX_DT))
+    const dt = outputDt / subSteps // actual integration dt (≤ MAX_DT)
     accumRef.current += frameTime * state.playbackSpeed
     let steps = 0
     const maxStepsPerFrame = 200
@@ -174,73 +162,29 @@ function App() {
     // 2. Re-reading stale state — each substep must use the previous step's output
     let localState = state as typeof state
     let prevLocalState = localState
-    while (accumRef.current >= dt && steps < maxStepsPerFrame) {
-      let newState: Partial<typeof state>
+    // Helper: run one integration step with the current engine
+    const doStep = (ls: typeof state): Partial<typeof state> => {
       if (useRapier && isRapierReady()) {
-        newState = stepRapierSimulation(
-          localState,
-          veh.vehicle,
-          veh.frontGeometry,
-          veh.rearGeometry,
-          veh.frontShock,
-          veh.rearShock,
-          veh.frontSwayBar,
-          veh.rearSwayBar,
-          veh.frontSteeringRack,
-          veh.rearSteeringRack,
-          veh.hydraulic,
-          dt
-        )
-      } else if (localState.physicsEngine === 'rk4-wasm' && isRK4WasmReady()) {
-        newState = stepRK4WasmSimulation(
-          localState,
-          veh.vehicle,
-          veh.frontGeometry,
-          veh.rearGeometry,
-          veh.frontShock,
-          veh.rearShock,
-          veh.frontSwayBar,
-          veh.rearSwayBar,
-          veh.frontSteeringRack,
-          veh.rearSteeringRack,
-          veh.hydraulic,
-          dt
-        )
-      } else if (localState.physicsEngine === 'rk4' || (localState.physicsEngine === 'rk4-wasm' && !isRK4WasmReady())) {
-        newState = stepRK4Simulation(
-          localState,
-          veh.vehicle,
-          veh.frontGeometry,
-          veh.rearGeometry,
-          veh.frontShock,
-          veh.rearShock,
-          veh.frontSwayBar,
-          veh.rearSwayBar,
-          veh.frontSteeringRack,
-          veh.rearSteeringRack,
-          veh.hydraulic,
-          dt
-        )
+        return stepRapierSimulation(ls, veh.vehicle, veh.frontGeometry, veh.rearGeometry, veh.frontShock, veh.rearShock, veh.frontSwayBar, veh.rearSwayBar, veh.frontSteeringRack, veh.rearSteeringRack, veh.hydraulic, dt)
+      } else if (ls.physicsEngine === 'rk4-wasm' && isRK4WasmReady()) {
+        return stepRK4WasmSimulation(ls, veh.vehicle, veh.frontGeometry, veh.rearGeometry, veh.frontShock, veh.rearShock, veh.frontSwayBar, veh.rearSwayBar, veh.frontSteeringRack, veh.rearSteeringRack, veh.hydraulic, dt)
+      } else if (ls.physicsEngine === 'rk4' || (ls.physicsEngine === 'rk4-wasm' && !isRK4WasmReady())) {
+        return stepRK4Simulation(ls, veh.vehicle, veh.frontGeometry, veh.rearGeometry, veh.frontShock, veh.rearShock, veh.frontSwayBar, veh.rearSwayBar, veh.frontSteeringRack, veh.rearSteeringRack, veh.hydraulic, dt)
       } else {
-        newState = stepSimulation(
-          localState,
-          veh.vehicle,
-          veh.frontGeometry,
-          veh.rearGeometry,
-          veh.frontShock,
-          veh.rearShock,
-          veh.frontSwayBar,
-          veh.rearSwayBar,
-          veh.frontSteeringRack,
-          veh.rearSteeringRack,
-          veh.hydraulic,
-          dt
-        )
+        return stepSimulation(ls, veh.vehicle, veh.frontGeometry, veh.rearGeometry, veh.frontShock, veh.rearShock, veh.frontSwayBar, veh.rearSwayBar, veh.frontSteeringRack, veh.rearSteeringRack, veh.hydraulic, dt)
       }
-      // Merge into local state for next substep (no store overhead)
-      prevLocalState = localState
-      localState = { ...localState, ...newState } as typeof state
-      accumRef.current -= dt
+    }
+
+    // Outer loop drains the accumulator by outputDt per iteration.
+    // Inner loop sub-steps with the (clamped) integration dt so that
+    // the integrator always sees a safe timestep (≤ MAX_DT).
+    while (accumRef.current >= outputDt && steps < maxStepsPerFrame) {
+      for (let sub = 0; sub < subSteps; sub++) {
+        const newState = doStep(localState)
+        prevLocalState = localState
+        localState = { ...localState, ...newState } as typeof state
+      }
+      accumRef.current -= outputDt
       steps++
     }
     // Interpolate between last two physics states for smooth rendering.
@@ -248,7 +192,7 @@ function App() {
     // without this, the variable step count per frame (e.g. 8 vs 9 at
     // 500Hz/60fps) causes visible stuttering.
     if (steps > 0) {
-      const alpha = accumRef.current / dt
+      const alpha = accumRef.current / outputDt
       const lerp = (a: number, b: number) => a + alpha * (b - a)
       const lerpCorner = (prev: typeof localState.corners.FL, curr: typeof localState.corners.FL) => ({
         ...curr,
