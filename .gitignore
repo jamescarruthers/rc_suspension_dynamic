@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+wasm-rk4/target
 *.local
 
 # Editor directories and files

@@ -9,6 +9,7 @@ import { useSimulationStore } from './store/useSimulationStore'
 import { useVehicleStore } from './store/useVehicleStore'
 import { stepSimulation, findStaticEquilibrium } from './engine/integration'
 import { stepRK4Simulation } from './engine/rk4Engine'
+import { initRK4Wasm, isRK4WasmReady, stepRK4WasmSimulation } from './engine/rk4WasmEngine'
 import {
   initRapier,
   isRapierReady,
@@ -56,9 +57,10 @@ function App() {
   const sim = useSimulationStore()
   const vehicle = useVehicleStore()
 
-  // Initialize Rapier WASM on mount
+  // Initialize WASM engines on mount
   useEffect(() => {
     initRapier().catch(console.error)
+    initRK4Wasm().catch(console.error)
   }, [])
 
   // Find static equilibrium on mount and when params change
@@ -142,7 +144,22 @@ function App() {
           veh.hydraulic,
           dt
         )
-      } else if (state.physicsEngine === 'rk4') {
+      } else if (state.physicsEngine === 'rk4-wasm' && isRK4WasmReady()) {
+        newState = stepRK4WasmSimulation(
+          state,
+          veh.vehicle,
+          veh.frontGeometry,
+          veh.rearGeometry,
+          veh.frontShock,
+          veh.rearShock,
+          veh.frontSwayBar,
+          veh.rearSwayBar,
+          veh.frontSteeringRack,
+          veh.rearSteeringRack,
+          veh.hydraulic,
+          dt
+        )
+      } else if (state.physicsEngine === 'rk4' || (state.physicsEngine === 'rk4-wasm' && !isRK4WasmReady())) {
         newState = stepRK4Simulation(
           state,
           veh.vehicle,
