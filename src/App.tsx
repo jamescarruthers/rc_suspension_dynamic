@@ -44,7 +44,6 @@ function App() {
   const lastTimeRef = useRef<number>(0)
   const accumRef = useRef<number>(0)
   const prevEngineRef = useRef<string>('rk4')
-  const prevHzRef = useRef<number>(500)
   const [mobileTab, setMobileTab] = useState<MobileTab>('viewport')
 
   // Performance stats tracking
@@ -80,8 +79,6 @@ function App() {
 
   // Find static equilibrium on mount
   useEffect(() => {
-    const state = useSimulationStore.getState()
-    prevHzRef.current = state.physicsHz
     const eqState = findStaticEquilibrium(
       vehicle.vehicle,
       vehicle.frontGeometry,
@@ -105,12 +102,6 @@ function App() {
     const veh = useVehicleStore.getState()
     const useRapier = state.physicsEngine === 'rapier'
 
-    // Handle physicsHz change: reset accumulator to prevent burst stepping.
-    if (state.physicsHz !== prevHzRef.current) {
-      prevHzRef.current = state.physicsHz
-      accumRef.current = 0
-    }
-
     // Handle engine switch: rebuild Rapier world or clean up
     if (state.physicsEngine !== prevEngineRef.current) {
       prevEngineRef.current = state.physicsEngine
@@ -133,14 +124,10 @@ function App() {
     const frameTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05)
     lastTimeRef.current = timestamp
 
-    // Fixed internal integration timestep.  Every Hz setting uses the same
-    // dt=0.002 so the physics is completely identical — switching Hz only
-    // changes how many steps run per frame (i.e. sim speed vs real-time).
-    // At 500 Hz the sim runs at 1:1 real-time; 1000 Hz = 2× speed, etc.
-    const INTERNAL_DT = 0.002
-    const dt = INTERNAL_DT
-    const simSpeedRatio = state.physicsHz * INTERNAL_DT // 500→1.0, 1000→2.0, 250→0.5
-    accumRef.current += frameTime * state.playbackSpeed * simSpeedRatio
+    // Fixed integration timestep (500 Hz).  Always runs at real-time
+    // scaled only by the playback speed buttons.
+    const dt = 0.002
+    accumRef.current += frameTime * state.playbackSpeed
     let steps = 0
     const maxStepsPerFrame = 200
 
