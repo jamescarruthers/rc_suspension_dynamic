@@ -310,6 +310,21 @@ export function stepSimulation(
   };
 }
 
+export type StepFunction = (
+  state: SimulationState,
+  vehicle: VehicleParams,
+  frontGeo: AxleGeometry,
+  rearGeo: AxleGeometry,
+  frontShock: AxleShock,
+  rearShock: AxleShock,
+  frontSwayBar: AxleSwayBar,
+  rearSwayBar: AxleSwayBar,
+  frontSteeringRack: SteeringRack,
+  rearSteeringRack: SteeringRack,
+  hydraulic: HydraulicConfig,
+  dt: number,
+) => Partial<SimulationState>;
+
 export function findStaticEquilibrium(
   vehicle: VehicleParams,
   frontGeo: AxleGeometry,
@@ -322,8 +337,10 @@ export function findStaticEquilibrium(
   rearSteeringRack: SteeringRack,
   hydraulic: HydraulicConfig,
   maxIterations: number = 5000,
+  stepFn: StepFunction = stepSimulation,
+  physicsHz: number = 1000,
 ): Partial<SimulationState> {
-  const dt = 0.001;
+  const dt = 1 / physicsHz;
   const velocityThreshold = 0.01;
 
   let simState: SimulationState = {
@@ -370,7 +387,7 @@ export function findStaticEquilibrium(
   };
 
   for (let i = 0; i < maxIterations; i++) {
-    const update = stepSimulation(
+    const update = stepFn(
       simState, vehicle, frontGeo, rearGeo,
       frontShock, rearShock, frontSwayBar, rearSwayBar,
       frontSteeringRack, rearSteeringRack, hydraulic, dt,
