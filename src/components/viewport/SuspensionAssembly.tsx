@@ -326,11 +326,11 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         gapSize={3}
       />
 
-      {/* Axle stub from kingpin centre to wheel */}
+      {/* Axle stub from kingpin centre outward to wheel hub */}
       <Line
         points={[
           [kingpinMidX, kingpinMidY, longitudinalOffset],
-          [wheelXActual, wheelY, wheelZ],
+          [kingpinMidX + sideSign * 10, kingpinMidY, longitudinalOffset],
         ]}
         color={WHITE}
         lineWidth={1.5}
