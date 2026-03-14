@@ -159,10 +159,6 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const rot = (x: number, y: number, z: number): [number, number, number] =>
     rotateWithChassis(x, y, z, rollRad, pitchRad)
 
-  // Wheel position (independent of chassis rotation)
-  const wheelY = cornerState.wheelPosition
-  const wheelZ = longitudinalOffset
-
   const tyreRadius = vehicle.tyreRadius
 
   // ── Derived lengths & angles ──
