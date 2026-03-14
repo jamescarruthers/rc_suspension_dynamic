@@ -335,15 +335,18 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const contactPatchZ = wheelZActual
 
   // ── Steering arm (§3.2, §3.11) ──
-  const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
-  const armAngle = ackermannRestAngle + steerRad
+  // Arm direction: rear-steer (armSign=+1) points rearward-inward,
+  // front-steer (armSign=-1) points forward-outward
+  const { armLength: ackermannArmLen, armSign } = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
+  const ackermannAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
+  const armAngleRest = armSign * ackermannAngle
+  const armAngle = armAngleRest + steerRad
   // A_ST origin is on the upright at lower ball joint height (per typical double-wishbone)
   const steeringArmBaseX = outerLowerX
   const steeringArmBaseY = outerLowerY
   const steeringArmBaseZ = outerLowerZ
-  const ackermannArmLength = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
-  const armTipX = steeringArmBaseX - sideSign * ackermannArmLength * Math.cos(armAngle)
-  const armTipZ = steeringArmBaseZ - ackermannArmLength * Math.sin(armAngle)
+  const armTipX = steeringArmBaseX - sideSign * ackermannArmLen * Math.cos(armAngle)
+  const armTipZ = steeringArmBaseZ - ackermannArmLen * Math.sin(armAngle)
   const armTipY = steeringArmBaseY
 
   return (
@@ -784,7 +787,9 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   const z = axle === 'front'
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
-  const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
+  const { armLength: ackermannArmLength, armSign } = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
+  const ackermannAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
+  const armAngleRest = armSign * ackermannAngle
 
   // Compute arm tip positions for each side using dynamic BJ positions from state
   const computeArmTip = (cornerState: typeof leftCorner, sideSign: number) => {
@@ -794,10 +799,9 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
     const outerLowerZ = z + lowerBJ.longitudinal
 
     const steerRad = (cornerState.steeringAngle * Math.PI) / 180
-    const armAngle = ackermannRestAngle + steerRad
-    const armLen = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
-    const tipX = outerLowerX - sideSign * armLen * Math.cos(armAngle)
-    const tipZ = outerLowerZ - armLen * Math.sin(armAngle)
+    const armAngle = armAngleRest + steerRad
+    const tipX = outerLowerX - sideSign * ackermannArmLength * Math.cos(armAngle)
+    const tipZ = outerLowerZ - ackermannArmLength * Math.sin(armAngle)
     return [tipX, outerLowerY, tipZ] as [number, number, number]
   }
 
@@ -806,9 +810,9 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
 
   // Steering rack — translates laterally with steering input
   // Rack displacement from commanded angle (same formula as kinematics solver)
+  // armSign flips displacement direction for front-steer
   const cmdRad = (steeringAngle * Math.PI) / 180
-  const ackermannArmLength = computeAckermannArmLength(geo, rack, vehicle.wheelbase)
-  const rackDisplacement = ackermannArmLength * Math.sin(cmdRad)
+  const rackDisplacement = armSign * ackermannArmLength * Math.sin(cmdRad)
   const halfRackWidth = rack.rackWidth / 2
   const rackY = chassisHeave + rack.rackHeight
   const rackZ = z + rack.rackForwardOffset

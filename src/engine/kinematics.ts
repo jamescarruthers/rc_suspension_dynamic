@@ -597,11 +597,20 @@ export function computeGeometricMotionRatio(
 /**
  * Compute steering arm length and tie rod length from the rack width.
  *
- * The steering arm points from the kingpin toward the rear axle centre.
+ * Arm direction depends on rack position (front-steer vs rear-steer):
+ *
+ *   Rear-steer (rackForwardOffset ≤ 0):
+ *     Arms point INWARD toward the rear axle centre.
+ *     armAngle = +atan2(kingpinHalfTrack, wheelbase)
+ *
+ *   Front-steer (rackForwardOffset > 0):
+ *     Arms point OUTWARD (forward, away from rear axle).
+ *     armAngle = −atan2(kingpinHalfTrack, wheelbase)
+ *
  * The arm length is set so that the arm tip's lateral position lines up
  * with the rack inner end (rackWidth/2 from centreline):
  *
- *   armLength = (kingpinHalfTrack − rackWidth/2) / cos(armAngleRest)
+ *   armLength = |kingpinHalfTrack − rackWidth/2| / cos(armAngleRest)
  *
  * The tie rod length is the 3D distance from rack inner end to arm tip
  * at rest, so it is fully determined by the rack geometry.
@@ -610,18 +619,28 @@ export function computeSteeringGeometry(
   geo: AxleGeometry,
   rack: SteeringRack,
   wheelbase: number,
-): { armLength: number; tieRodLength: number } {
+): { armLength: number; tieRodLength: number; armSign: number } {
   const hubOffset = geo.hubOffset ?? 0;
   const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
-  const armAngleRest = Math.atan2(kingpinHalfTrack, wheelbase);
+  const ackermannAngle = Math.atan2(kingpinHalfTrack, wheelbase);
 
-  // Arm length: arm tip lateral == rack inner end lateral
-  const cosRest = Math.cos(armAngleRest);
-  const armLength = Math.max((kingpinHalfTrack - rack.rackWidth / 2) / (cosRest || 1), 1);
+  // Front-steer: arms point forward-outward; rear-steer: arms point rearward-inward
+  const frontSteer = rack.rackForwardOffset > 0;
+  const armSign = frontSteer ? -1 : 1;
+
+  // Arm angle from lateral axis (positive = rearward-inward, negative = forward-outward)
+  const armAngleRest = armSign * ackermannAngle;
+  const cosRest = Math.cos(armAngleRest); // always positive since |angle| < 45°
+
+  // Arm length: arm tip lateral aligns with rack inner end
+  // Rear-steer: tip is inboard of kingpin → kingpinHalfTrack - rackWidth/2
+  // Front-steer: tip is outboard of kingpin → rackWidth/2 - kingpinHalfTrack
+  //   (but with the sign flip, cos is the same, and the lateral formula works)
+  const armLength = Math.max(Math.abs(kingpinHalfTrack - rack.rackWidth / 2) / (cosRest || 1), 1);
 
   // Arm tip at rest
-  const armTipLateral = kingpinHalfTrack - armLength * cosRest; // ≈ rackWidth/2
-  const armTipLong = -armLength * Math.sin(armAngleRest);
+  const armTipLateral = kingpinHalfTrack - armSign * armLength * cosRest;
+  const armTipLong = -armSign * armLength * Math.sin(ackermannAngle);
 
   // Height difference between rack and arm tip (lower ball joint)
   const kpiRad = degToRad(geo.kpiAngle);
@@ -635,16 +654,17 @@ export function computeSteeringGeometry(
   const dLong = armTipLong - rack.rackForwardOffset;
   const tieRodLength = Math.sqrt(dLat * dLat + dLong * dLong + heightDiff * heightDiff);
 
-  return { armLength, tieRodLength };
+  return { armLength, tieRodLength, armSign };
 }
 
-/** Convenience: just the arm length. */
+/** Convenience: arm length and direction sign. */
 export function computeAckermannArmLength(
   geo: AxleGeometry,
   rack: SteeringRack,
   wheelbase: number,
-): number {
-  return computeSteeringGeometry(geo, rack, wheelbase).armLength;
+): { armLength: number; armSign: number } {
+  const { armLength, armSign } = computeSteeringGeometry(geo, rack, wheelbase);
+  return { armLength, armSign };
 }
 
 /**
@@ -672,7 +692,7 @@ export function computeRackSteering(
   rack: SteeringRack,
   wheelbase: number,
 ): { leftAngle: number; rightAngle: number; rackDisplacement: number } {
-  const { armLength: ackermannArmLength, tieRodLength } = computeSteeringGeometry(geo, rack, wheelbase);
+  const { armLength: ackermannArmLength, tieRodLength, armSign } = computeSteeringGeometry(geo, rack, wheelbase);
 
   if (Math.abs(commandedAngle) < 1e-6 || ackermannArmLength <= 0) {
     return { leftAngle: commandedAngle, rightAngle: commandedAngle, rackDisplacement: 0 };
@@ -681,15 +701,18 @@ export function computeRackSteering(
   const hubOffset = geo.hubOffset ?? 0;
   const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
 
-  // Steering arm rest angle: the arm points inward toward the rear axle centre
-  // for Ackermann geometry. armAngleRest is measured from the lateral axis.
-  const armAngleRest = Math.atan2(kingpinHalfTrack, wheelbase);
+  // Steering arm rest angle: direction depends on front-steer vs rear-steer.
+  // armSign: +1 = rear-steer (arm rearward-inward), -1 = front-steer (arm forward-outward)
+  const ackermannAngle = Math.atan2(kingpinHalfTrack, wheelbase);
+  const armAngleRest = armSign * ackermannAngle;
 
   // Convert commanded angle to rack displacement.
   // The rack displacement is the lateral shift that produces the commanded
   // average steer angle via the steering arm geometry.
+  // For front-steer (armSign = -1) the displacement direction is inverted
+  // because the arm points forward-outward instead of rearward-inward.
   const cmdRad = degToRad(commandedAngle);
-  const rackDisplacement = ackermannArmLength * Math.sin(cmdRad);
+  const rackDisplacement = armSign * ackermannArmLength * Math.sin(cmdRad);
 
   // Rack inner end positions (Y=lateral, Z=forward from axle)
   // At rest (centred), the tie rod inner ends are at ±rackWidth/2 laterally,
@@ -702,12 +725,10 @@ export function computeRackSteering(
   const rightInnerLateral = halfRackWidth + rackDisplacement;  // moves outboard when rack displaces right
 
   // Steering arm tip at rest (A_ST), relative to the lower ball joint:
-  // The arm extends inward and rearward from the kingpin axis.
-  // In plan view, it points toward the rear axle centre at angle armAngleRest.
-  // Lateral: kingpinHalfTrack - ackermannArmLength * cos(armAngleRest)
-  // Longitudinal: -ackermannArmLength * sin(armAngleRest) (rearward)
-  // armTipLateral = kingpinHalfTrack - ackermannArmLength * cos(armAngleRest)
-  // armTipLongitudinal = -ackermannArmLength * sin(armAngleRest)
+  // Rear-steer (armSign=+1): arm extends inward and rearward (toward rear axle centre)
+  // Front-steer (armSign=-1): arm extends inward and forward (away from rear axle)
+  // armTipLateral = kingpinHalfTrack - L * cos(armAngleRest)
+  // armTipLongitudinal = -L * sin(armAngleRest)
 
   // Steering arm tip height = lower ball joint height (approximation at ride height)
   // The tie rod inner end is at rack height. Arm tip is at lower BJ height.
