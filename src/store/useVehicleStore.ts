@@ -100,14 +100,14 @@ const defaultRearSwayBar: AxleSwayBar = {
 };
 
 const defaultFrontSteeringRack: SteeringRack = {
-  rackWidth: 60,              // mm, lateral spacing between tie rod inner ends
+  rackWidth: 165,             // mm, lateral spacing between tie rod inner ends (~65% of trackWidth)
   rackHeight: 18,             // mm, height of rack above ground
   rackForwardOffset: 15,      // mm, forward of axle line
 
 };
 
 const defaultRearSteeringRack: SteeringRack = {
-  rackWidth: 60,
+  rackWidth: 165,
   rackHeight: 18,
   rackForwardOffset: -10,
 
@@ -339,8 +339,8 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           },
           frontSwayBar: { ...defaultFrontSwayBar, wireDiameter: 1.6, armLength: 22 },
           rearSwayBar: { ...defaultRearSwayBar, enabled: true, wireDiameter: 1.8, armLength: 25 },
-          frontSteeringRack: { ...defaultFrontSteeringRack, rackWidth: 50, rackHeight: 15, rackForwardOffset: 12 },
-          rearSteeringRack: { ...defaultRearSteeringRack, rackWidth: 50, rackHeight: 15, rackForwardOffset: -8 },
+          frontSteeringRack: { ...defaultFrontSteeringRack, rackWidth: 162, rackHeight: 15, rackForwardOffset: 12 },
+          rearSteeringRack: { ...defaultRearSteeringRack, rackWidth: 162, rackHeight: 15, rackForwardOffset: -8 },
           hydraulic: { ...defaultHydraulic },
         });
         break;
