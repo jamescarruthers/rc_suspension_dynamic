@@ -633,7 +633,7 @@ fn compute_derivs(
             heave + dp.ride_height, roll_rad, pitch_rad,
             arm[0], arm[1],
         );
-        let shock_comp = wheel_pos - sprung_z + dp.ride_height;
+        let shock_comp = wheel_pos - sprung_z + dp.ride_height - dp.tyre_radius;
         let sprung_vel_z = heave_vel
             + arm[0] * roll_vel * roll_rad.cos()
             + arm[1] * pitch_vel * pitch_rad.cos();
@@ -909,7 +909,7 @@ pub fn rk4_step(
             sv[S_HEAVE] + ride_height, final_roll, final_pitch,
             arm[0], arm[1],
         );
-        let susp_comp = wheel_pos - sprung_z + ride_height;
+        let susp_comp = wheel_pos - sprung_z + ride_height - dp.tyre_radius;
         out[base + 3] = susp_comp;
         shock_comps[i] = susp_comp;
 

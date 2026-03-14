@@ -171,7 +171,7 @@ export function stepSimulation(
       arm.longitudinal,
     );
 
-    newCorners[c].suspensionCompression = cs.wheelPosition - sprungZ + vehicle.rideHeight;
+    newCorners[c].suspensionCompression = cs.wheelPosition - sprungZ + vehicle.rideHeight - tyreRadius;
     newCorners[c].shockCompression = newCorners[c].suspensionCompression;
 
     const sprungVelZ = state.chassisHeaveVelocity +
