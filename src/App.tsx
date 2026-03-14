@@ -10,6 +10,7 @@ import { useVehicleStore } from './store/useVehicleStore'
 import { stepSimulation, findStaticEquilibrium } from './engine/integration'
 import { stepRK4Simulation } from './engine/rk4Engine'
 import { initRK4Wasm, isRK4WasmReady, stepRK4WasmSimulation } from './engine/rk4WasmEngine'
+import './engine/benchmark' // registers window.benchmarkRK4()
 import {
   initRapier,
   isRapierReady,
@@ -27,6 +28,7 @@ export interface PerfStats {
   physicsStepsPerSec: number
   physicsEngine: string
   simTime: number
+  wasmReady: boolean
 }
 
 export const PerfStatsContext = createContext<PerfStats>({
@@ -34,6 +36,7 @@ export const PerfStatsContext = createContext<PerfStats>({
   physicsStepsPerSec: 0,
   physicsEngine: 'rk4',
   simTime: 0,
+  wasmReady: false,
 })
 
 function App() {
@@ -52,6 +55,7 @@ function App() {
     physicsStepsPerSec: 0,
     physicsEngine: 'rk4',
     simTime: 0,
+    wasmReady: false,
   })
 
   const sim = useSimulationStore()
@@ -206,6 +210,7 @@ function App() {
         physicsStepsPerSec: Math.round(perfStepCount.current * 1000 / perfElapsed),
         physicsEngine: state.physicsEngine,
         simTime: state.time,
+        wasmReady: isRK4WasmReady(),
       })
       perfFrameCount.current = 0
       perfStepCount.current = 0

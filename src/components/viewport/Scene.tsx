@@ -11,13 +11,18 @@ import { useVehicleStore } from '../../store/useVehicleStore'
 function PerfStatsOverlay() {
   const stats = useContext(PerfStatsContext)
 
+  const isWasmEngine = stats.physicsEngine === 'rk4-wasm'
+  const wasmActive = isWasmEngine && stats.wasmReady
+  const wasmFallback = isWasmEngine && !stats.wasmReady
+
   const engineLabel = stats.physicsEngine === 'rk4' ? 'RK4' :
-    stats.physicsEngine === 'rk4-wasm' ? 'RK4 WASM' :
+    wasmActive ? 'RK4 WASM' :
+    wasmFallback ? 'RK4 (WASM loading...)' :
     stats.physicsEngine === 'rapier' ? 'Rapier' : 'Euler'
 
   return (
     <div className="absolute bottom-2 left-2 text-[10px] font-mono leading-tight bg-[#111820]/80 border border-[#1E2D3D] rounded px-2 py-1.5 text-[#8899AA] backdrop-blur-sm select-none pointer-events-none">
-      <div className="text-[#00FFE0]">{engineLabel}</div>
+      <div className={wasmActive ? 'text-[#FF6B00]' : 'text-[#00FFE0]'}>{engineLabel}</div>
       <div>{stats.fps} FPS</div>
       <div>{stats.physicsStepsPerSec.toLocaleString()} steps/s</div>
       <div>t = {stats.simTime.toFixed(2)}s</div>
