@@ -96,14 +96,14 @@ export const rearSwayBar: AxleSwayBar = {
 };
 
 export const frontSteeringRack: SteeringRack = {
-  rackWidth: 50,
+  rackWidth: 162,
   rackHeight: 15,
   rackForwardOffset: 12,
 
 };
 
 export const rearSteeringRack: SteeringRack = {
-  rackWidth: 50,
+  rackWidth: 162,
   rackHeight: 15,
   rackForwardOffset: -8,
 
