@@ -338,9 +338,13 @@ export function findStaticEquilibrium(
   hydraulic: HydraulicConfig,
   maxIterations: number = 5000,
   stepFn: StepFunction = stepSimulation,
-  physicsHz: number = 1000,
 ): Partial<SimulationState> {
-  const dt = 1 / physicsHz;
+  // Use a fixed small dt so the equilibrium result is independent of the
+  // runtime physicsHz setting.  The per-step damping below is scaled to
+  // match, so convergence speed is the same regardless of dt.
+  const dt = 0.001;
+  const baseDampDt = 0.001; // dt at which 0.99 was originally calibrated
+  const dampFactor = Math.pow(0.99, dt / baseDampDt); // dt-proportional damping
   const velocityThreshold = 0.01;
 
   let simState: SimulationState = {
@@ -394,11 +398,11 @@ export function findStaticEquilibrium(
     );
     simState = { ...simState, ...update };
 
-    simState.chassisHeaveVelocity *= 0.99;
-    simState.rollVelocity *= 0.99;
-    simState.pitchVelocity *= 0.99;
+    simState.chassisHeaveVelocity *= dampFactor;
+    simState.rollVelocity *= dampFactor;
+    simState.pitchVelocity *= dampFactor;
     for (const c of CORNERS) {
-      simState.corners[c].wheelVelocity *= 0.99;
+      simState.corners[c].wheelVelocity *= dampFactor;
     }
 
     const maxVel = Math.max(
