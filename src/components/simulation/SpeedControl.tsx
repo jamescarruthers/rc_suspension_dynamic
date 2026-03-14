@@ -3,14 +3,11 @@ import { useSimulationStore } from '../../store/useSimulationStore'
 export function SpeedControl() {
   const running = useSimulationStore((s) => s.running)
   const playbackSpeed = useSimulationStore((s) => s.playbackSpeed)
-  const physicsHz = useSimulationStore((s) => s.physicsHz)
   const toggleRunning = useSimulationStore((s) => s.toggleRunning)
   const setPlaybackSpeed = useSimulationStore((s) => s.setPlaybackSpeed)
-  const setPhysicsHz = useSimulationStore((s) => s.setPhysicsHz)
   const reset = useSimulationStore((s) => s.reset)
 
   const speeds = [0.1, 0.25, 0.5, 1, 2, 5]
-  const hzOptions = [100, 250, 500, 1000]
 
   return (
     <div className="space-y-1">
@@ -45,22 +42,6 @@ export function SpeedControl() {
             }`}
           >
             {s}x
-          </button>
-        ))}
-      </div>
-      <div className="text-[9px] text-[#556677] font-[var(--font-mono)] mt-1">PHYSICS RATE</div>
-      <div className="flex flex-wrap gap-1">
-        {hzOptions.map((hz) => (
-          <button
-            key={hz}
-            onClick={() => setPhysicsHz(hz)}
-            className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
-              physicsHz === hz
-                ? 'bg-[#00FFE0] text-[#0A0E14] border-[#00FFE0]'
-                : 'bg-[#1A2332] border-[#1E2D3D] text-[#8899AA] hover:text-[#00FFE0]'
-            }`}
-          >
-            {hz} Hz
           </button>
         ))}
       </div>
