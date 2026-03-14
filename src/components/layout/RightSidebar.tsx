@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SimModeToggle } from '../simulation/SimModeToggle'
+import { PhysicsEngineToggle } from '../simulation/PhysicsEngineToggle'
 import { SimControls } from '../simulation/SimControls'
 import { DropTestInput } from '../simulation/DropTestInput'
 import { RollInput } from '../simulation/RollInput'
@@ -40,6 +41,7 @@ export function RightSidebar() {
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3">
         <SimModeToggle />
+        <PhysicsEngineToggle />
         <SpeedControl />
         <SimControls />
         <DropTestInput />

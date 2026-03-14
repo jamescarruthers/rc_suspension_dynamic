@@ -282,6 +282,7 @@ export function findStaticEquilibrium(
 
   let simState: SimulationState = {
     mode: 'dynamic',
+    physicsEngine: 'custom',
     running: false,
     time: 0,
     playbackSpeed: 1,

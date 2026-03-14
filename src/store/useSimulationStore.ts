@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Corner, PerCornerState, SimulationState } from '../types/suspension';
+import type { Corner, PerCornerState, PhysicsEngineType, SimulationState } from '../types/suspension';
 
 // ── Default per-corner state (equilibrium) ───────────────────────────────────
 
@@ -52,6 +52,7 @@ function defaultForceVisibility(): Record<string, boolean> {
 function defaultSimulationState(): SimulationState {
   return {
     mode: 'dynamic',
+    physicsEngine: 'custom',
     running: false,
     time: 0,
     playbackSpeed: 1,
@@ -98,6 +99,7 @@ function defaultSimulationState(): SimulationState {
 interface SimulationStore extends SimulationState {
   // Mode & playback
   setMode: (mode: 'kinematic' | 'dynamic') => void;
+  setPhysicsEngine: (engine: PhysicsEngineType) => void;
   toggleRunning: () => void;
   reset: () => void;
   setPlaybackSpeed: (speed: number) => void;
@@ -129,22 +131,30 @@ interface SimulationStore extends SimulationState {
   // Physics loop updates
   updateState: (update: Partial<SimulationState>) => void;
   addGraphPoint: (point: Record<string, number>) => void;
+
+  // Rapier rebuild flag (set when state is reset and Rapier world needs reconstruction)
+  rapierNeedsRebuild: boolean;
+  setRapierNeedsRebuild: (v: boolean) => void;
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
   ...defaultSimulationState(),
+  rapierNeedsRebuild: false,
 
   setMode: (mode) => set({ mode }),
+  setPhysicsEngine: (engine) => set({ physicsEngine: engine }),
 
   toggleRunning: () => set((state) => ({ running: !state.running })),
 
   reset: () => {
-    const { mode } = get();
+    const { mode, physicsEngine } = get();
     set({
       ...defaultSimulationState(),
-      mode, // Preserve the current mode across reset
+      mode,
+      physicsEngine,
+      rapierNeedsRebuild: true,
     });
   },
 
@@ -180,6 +190,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         RR: { ...defaultCornerState(), wheelPosition: dropHeight },
       },
       graphHistory: [],
+      rapierNeedsRebuild: true,
     });
   },
 
@@ -200,6 +211,8 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   setGraphTimeWindow: (seconds) => set({ graphTimeWindow: seconds }),
 
   updateState: (update) => set(update),
+
+  setRapierNeedsRebuild: (v) => set({ rapierNeedsRebuild: v }),
 
   addGraphPoint: (point) =>
     set((state) => {
