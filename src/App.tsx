@@ -71,6 +71,8 @@ function App() {
       vehicle.rearShock,
       vehicle.frontSwayBar,
       vehicle.rearSwayBar,
+      vehicle.frontSteeringRack,
+      vehicle.rearSteeringRack,
       vehicle.hydraulic
     )
     sim.updateState(eqState)
@@ -135,6 +137,8 @@ function App() {
           veh.rearShock,
           veh.frontSwayBar,
           veh.rearSwayBar,
+          veh.frontSteeringRack,
+          veh.rearSteeringRack,
           veh.hydraulic,
           dt
         )
@@ -148,6 +152,8 @@ function App() {
           veh.rearShock,
           veh.frontSwayBar,
           veh.rearSwayBar,
+          veh.frontSteeringRack,
+          veh.rearSteeringRack,
           veh.hydraulic,
           dt
         )
@@ -161,6 +167,8 @@ function App() {
           veh.rearShock,
           veh.frontSwayBar,
           veh.rearSwayBar,
+          veh.frontSteeringRack,
+          veh.rearSteeringRack,
           veh.hydraulic,
           dt
         )

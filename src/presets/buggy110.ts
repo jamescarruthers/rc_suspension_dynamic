@@ -3,6 +3,7 @@ import type {
   AxleGeometry,
   AxleShock,
   AxleSwayBar,
+  SteeringRack,
   HydraulicConfig,
 } from '../types/suspension';
 
@@ -92,6 +93,20 @@ export const rearSwayBar: AxleSwayBar = {
   enabled: true,
   wireDiameter: 1.8,
   armLength: 25,
+};
+
+export const frontSteeringRack: SteeringRack = {
+  rackWidth: 50,
+  rackHeight: 15,
+  rackForwardOffset: 12,
+  tieRodLength: 45,
+};
+
+export const rearSteeringRack: SteeringRack = {
+  rackWidth: 50,
+  rackHeight: 15,
+  rackForwardOffset: -8,
+  tieRodLength: 45,
 };
 
 export const hydraulic: HydraulicConfig = {

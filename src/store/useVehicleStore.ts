@@ -4,6 +4,7 @@ import type {
   AxleGeometry,
   AxleShock,
   AxleSwayBar,
+  SteeringRack,
   HydraulicConfig,
   PresetConfig,
 } from '../types/suspension';
@@ -98,6 +99,20 @@ const defaultRearSwayBar: AxleSwayBar = {
   armLength: 25,
 };
 
+const defaultFrontSteeringRack: SteeringRack = {
+  rackWidth: 60,              // mm, lateral spacing between tie rod inner ends
+  rackHeight: 18,             // mm, height of rack above ground
+  rackForwardOffset: 15,      // mm, forward of axle line
+  tieRodLength: 55,           // mm, tie rod length
+};
+
+const defaultRearSteeringRack: SteeringRack = {
+  rackWidth: 60,
+  rackHeight: 18,
+  rackForwardOffset: -10,
+  tieRodLength: 55,
+};
+
 const defaultHydraulic: HydraulicConfig = {
   enabled: false,
   topology: 'lateral',
@@ -123,6 +138,8 @@ interface VehicleStore {
   rearShock: AxleShock;
   frontSwayBar: AxleSwayBar;
   rearSwayBar: AxleSwayBar;
+  frontSteeringRack: SteeringRack;
+  rearSteeringRack: SteeringRack;
   hydraulic: HydraulicConfig;
 
   // Actions
@@ -133,6 +150,8 @@ interface VehicleStore {
   setRearShock: (params: Partial<AxleShock>) => void;
   setFrontSwayBar: (params: Partial<AxleSwayBar>) => void;
   setRearSwayBar: (params: Partial<AxleSwayBar>) => void;
+  setFrontSteeringRack: (params: Partial<SteeringRack>) => void;
+  setRearSteeringRack: (params: Partial<SteeringRack>) => void;
   setHydraulic: (params: Partial<HydraulicConfig>) => void;
   copyFrontToRear: () => void;
   copyRearToFront: () => void;
@@ -149,6 +168,8 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
   rearShock: { ...defaultRearShock },
   frontSwayBar: { ...defaultFrontSwayBar },
   rearSwayBar: { ...defaultRearSwayBar },
+  frontSteeringRack: { ...defaultFrontSteeringRack },
+  rearSteeringRack: { ...defaultRearSteeringRack },
   hydraulic: { ...defaultHydraulic },
 
   setVehicle: (params) =>
@@ -171,6 +192,12 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
 
   setRearSwayBar: (params) =>
     set((state) => ({ rearSwayBar: { ...state.rearSwayBar, ...params } })),
+
+  setFrontSteeringRack: (params) =>
+    set((state) => ({ frontSteeringRack: { ...state.frontSteeringRack, ...params } })),
+
+  setRearSteeringRack: (params) =>
+    set((state) => ({ rearSteeringRack: { ...state.rearSteeringRack, ...params } })),
 
   setHydraulic: (params) =>
     set((state) => ({ hydraulic: { ...state.hydraulic, ...params } })),
@@ -220,6 +247,8 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
         rearShock: { ...preset.rearShock },
         frontSwayBar: { ...preset.frontSwayBar },
         rearSwayBar: { ...preset.rearSwayBar },
+        frontSteeringRack: { ...preset.frontSteeringRack },
+        rearSteeringRack: { ...preset.rearSteeringRack },
         hydraulic: { ...preset.hydraulic },
       });
       return;
@@ -236,6 +265,8 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           rearShock: { ...defaultRearShock },
           frontSwayBar: { ...defaultFrontSwayBar },
           rearSwayBar: { ...defaultRearSwayBar },
+          frontSteeringRack: { ...defaultFrontSteeringRack },
+          rearSteeringRack: { ...defaultRearSteeringRack },
           hydraulic: { ...defaultHydraulic },
         });
         break;
@@ -287,6 +318,8 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           },
           frontSwayBar: { ...defaultFrontSwayBar, wireDiameter: 2.0 },
           rearSwayBar: { ...defaultRearSwayBar },
+          frontSteeringRack: { ...defaultFrontSteeringRack, rackWidth: 50, tieRodLength: 45 },
+          rearSteeringRack: { ...defaultRearSteeringRack, rackWidth: 50, tieRodLength: 45 },
           hydraulic: { ...defaultHydraulic },
         });
         break;

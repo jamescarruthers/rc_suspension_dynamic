@@ -26,6 +26,7 @@ import type {
   AxleGeometry,
   AxleShock,
   AxleSwayBar,
+  SteeringRack,
   HydraulicConfig,
   PerCornerState,
   SimulationState,
@@ -36,7 +37,7 @@ import { computeTyreForce } from './tyreContact';
 import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeAccelerations, computeLeverArms, type CornerForceInputs } from './dynamics';
 import { computeHydraulicForces } from './hydraulics';
-import { updateKinematics, computeAckermannSteering, computeGeometricMotionRatio } from './kinematics';
+import { updateKinematics, computeRackSteering, computeGeometricMotionRatio } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 // ─── State vector indices ────────────────────────────────────────────────────
@@ -202,6 +203,8 @@ export function stepRK4Simulation(
   rearShock: AxleShock,
   frontSwayBar: AxleSwayBar,
   rearSwayBar: AxleSwayBar,
+  frontSteeringRack: SteeringRack,
+  rearSteeringRack: SteeringRack,
   hydraulic: HydraulicConfig,
   dt: number = 0.001,
 ): Partial<SimulationState> {
@@ -435,11 +438,11 @@ export function stepRK4Simulation(
   let frontRCH = 0;
   let rearRCH = 0;
 
-  const frontAck = computeAckermannSteering(
-    state.frontSteeringAngle, frontGeo.trackWidth, vehicle.wheelbase, frontGeo.ackermannArmLength, frontGeo.hubOffset ?? 0,
+  const frontAck = computeRackSteering(
+    state.frontSteeringAngle, frontGeo, frontSteeringRack, vehicle.wheelbase,
   );
-  const rearAck = computeAckermannSteering(
-    state.rearSteeringAngle, rearGeo.trackWidth, vehicle.wheelbase, rearGeo.ackermannArmLength, rearGeo.hubOffset ?? 0,
+  const rearAck = computeRackSteering(
+    state.rearSteeringAngle, rearGeo, rearSteeringRack, vehicle.wheelbase,
   );
 
   for (const c of CORNERS) {
