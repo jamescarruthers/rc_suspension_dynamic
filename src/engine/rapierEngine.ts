@@ -33,6 +33,7 @@ import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeHydraulicForces } from './hydraulics';
 import { updateKinematics, computeRackSteering, computeGeometricMotionRatio, computeSteeringCamberGain, computeAckermannPercent } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
+import { computeLeverArms } from './dynamics';
 
 // ── Conversion helpers ──────────────────────────────────────────────
 
@@ -451,6 +452,8 @@ export function stepRapierSimulation(
   // Kinematics update (camber, roll centre)
   let frontRCH = 0;
   let rearRCH = 0;
+  const leverArms = computeLeverArms(vehicle, frontGeo, rearGeo);
+  const finalHeave = newChassisPos.y * M_TO_MM - vehicle.rideHeight;
 
   const frontAck = computeRackSteering(
     state.frontSteeringAngle, frontGeo, frontSteeringRack, vehicle.wheelbase,
@@ -462,7 +465,11 @@ export function stepRapierSimulation(
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
     const shock = isFront(c) ? frontShock : rearShock;
-    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
+    const arm = leverArms[c];
+    const chassisHeightOffset = finalHeave
+      + arm.lateral * Math.sin(newEuler.roll)
+      + arm.longitudinal * Math.sin(newEuler.pitch);
+    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c), chassisHeightOffset);
     newCorners[c].camberAngle = kin.camber;
     newCorners[c].dynamicKPI = kin.dynamicKPI;
     newCorners[c].dynamicCaster = kin.dynamicCaster;

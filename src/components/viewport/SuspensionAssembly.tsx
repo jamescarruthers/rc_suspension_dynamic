@@ -171,8 +171,8 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
     deriveInnerPivotHeights(geo, vehicle.rideHeight, tyreRadius)
 
   // ── Dynamic ball joint positions from 3D solver ──
-  // The kinematics solver provides unsigned lateral, absolute vertical,
-  // and longitudinal offset from axle line.
+  // The solver now receives the chassis height offset and produces
+  // world-space ball joint positions directly.
   const lowerBJ = cornerState.lowerBJPosition
   const upperBJ = cornerState.upperBJPosition
 

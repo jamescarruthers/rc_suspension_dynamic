@@ -232,6 +232,7 @@ export function solve3DCoupledBallJoints(
   rideHeight: number,
   tyreRadius: number,
   shockCompression: number,
+  chassisHeightOffset: number = 0,
 ): {
   camber: number;
   dynamicCaster: number;
@@ -240,7 +241,18 @@ export function solve3DCoupledBallJoints(
 } {
   const { lowerLen } = armLengths(geo);
   const staticBJs = computeStaticBallJoints3D(geo, tyreRadius);
-  const pivots = compute3DInnerPivots(geo, rideHeight, tyreRadius);
+  const staticPivots = compute3DInnerPivots(geo, rideHeight, tyreRadius);
+
+  // Shift inner pivots vertically by the chassis displacement from ride height.
+  // The pivots are on the chassis and move with it.
+  const pivots = chassisHeightOffset === 0 ? staticPivots : {
+    lowerFore: vec3(staticPivots.lowerFore.x, staticPivots.lowerFore.y + chassisHeightOffset, staticPivots.lowerFore.z),
+    lowerAft: vec3(staticPivots.lowerAft.x, staticPivots.lowerAft.y + chassisHeightOffset, staticPivots.lowerAft.z),
+    upperFore: vec3(staticPivots.upperFore.x, staticPivots.upperFore.y + chassisHeightOffset, staticPivots.upperFore.z),
+    upperAft: vec3(staticPivots.upperAft.x, staticPivots.upperAft.y + chassisHeightOffset, staticPivots.upperAft.z),
+    lowerAxis: staticPivots.lowerAxis,
+    upperAxis: staticPivots.upperAxis,
+  };
 
   if (lowerLen <= 0) {
     return {
@@ -264,8 +276,9 @@ export function solve3DCoupledBallJoints(
   const lowerRadial = normalize(sub(staticBJs.lowerBJ, lowerAxisPt)); // e1
   const lowerTangent = normalize(cross(pivots.lowerAxis, lowerRadial)); // e2
 
-  // Target Y for lower BJ
-  const targetLowerY = staticBJs.lowerBJ.y + shockCompression;
+  // Target Y for lower BJ: static position + absolute wheel displacement.
+  // wheelPos = shockCompression + chassisHeightOffset (relative + chassis offset).
+  const targetLowerY = staticBJs.lowerBJ.y + shockCompression + chassisHeightOffset;
 
   // Lower BJ position as function of angle θ:
   //   P(θ) = lowerAxisPt + lowerArcRadius * (cos(θ) * e1 + sin(θ) * e2)
@@ -924,6 +937,7 @@ export function updateKinematics(
   tyreRadius: number,
   shockCompression: number,
   isLeftSide: boolean,
+  chassisHeightOffset: number = 0,
 ): KinematicsResult {
   const ic = computeInstantCentre(geo, rideHeight, tyreRadius, isLeftSide);
 
@@ -932,7 +946,7 @@ export function updateKinematics(
   const rollCentreHeight = computeRollCentreHeight(ic, contactPatchY, 0);
 
   // ── Full 3D solve for camber and caster ──
-  const result3D = solve3DCoupledBallJoints(geo, rideHeight, tyreRadius, shockCompression);
+  const result3D = solve3DCoupledBallJoints(geo, rideHeight, tyreRadius, shockCompression, chassisHeightOffset);
   const camber = result3D.camber;
   const dynamicCaster = result3D.dynamicCaster;
 

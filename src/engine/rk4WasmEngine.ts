@@ -23,6 +23,7 @@ import {
   computeSteeringCamberGain,
   computeAckermannPercent,
 } from './kinematics';
+import { computeLeverArms } from './dynamics';
 
 // ─── WASM module interface ──────────────────────────────────────────────────
 
@@ -309,6 +310,10 @@ export function stepRK4WasmSimulation(
   // Kinematics (stays in JS — only called once per step)
   let frontRCH = 0;
   let rearRCH = 0;
+  const leverArms = computeLeverArms(vehicle, frontGeo, rearGeo);
+  const finalHeave = out[0];
+  const finalRollRad = out[1];
+  const finalPitchRad = out[2];
 
   const frontAck = computeRackSteering(
     state.frontSteeringAngle, frontGeo, frontSteeringRack, vehicle.wheelbase,
@@ -320,7 +325,11 @@ export function stepRK4WasmSimulation(
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
     const shock = isFront(c) ? frontShock : rearShock;
-    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
+    const arm = leverArms[c];
+    const chassisHeightOffset = finalHeave
+      + arm.lateral * Math.sin(finalRollRad)
+      + arm.longitudinal * Math.sin(finalPitchRad);
+    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c), chassisHeightOffset);
     newCorners[c].camberAngle = kin.camber;
     newCorners[c].dynamicKPI = kin.dynamicKPI;
     newCorners[c].dynamicCaster = kin.dynamicCaster;
