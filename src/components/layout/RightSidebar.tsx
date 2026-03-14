@@ -10,10 +10,10 @@ import { SpeedControl } from '../simulation/SpeedControl'
 import { ForceToggle } from '../simulation/ForceToggle'
 import { PresetSelector } from '../simulation/PresetSelector'
 
-export function RightSidebar() {
+export function RightSidebar({ mobile = false }: { mobile?: boolean }) {
   const [collapsed, setCollapsed] = useState(false)
 
-  if (collapsed) {
+  if (!mobile && collapsed) {
     return (
       <div className="w-8 bg-[#111820] border-l border-[#1E2D3D] flex flex-col items-center pt-2">
         <button
@@ -23,6 +23,28 @@ export function RightSidebar() {
         >
           ◀
         </button>
+      </div>
+    )
+  }
+
+  if (mobile) {
+    return (
+      <div className="flex-1 bg-[#111820] flex flex-col min-h-0">
+        <div className="flex items-center px-3 py-2 border-b border-[#1E2D3D]">
+          <span className="text-xs text-[#556677] font-[var(--font-mono)]">SIMULATION</span>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+          <SimModeToggle />
+          <PhysicsEngineToggle />
+          <SpeedControl />
+          <SimControls />
+          <DropTestInput />
+          <RollInput />
+          <PitchInput />
+          <RoadSurfaceInput />
+          <ForceToggle />
+          <PresetSelector />
+        </div>
       </div>
     )
   }
