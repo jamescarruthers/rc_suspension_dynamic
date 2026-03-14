@@ -22,6 +22,15 @@ export interface KinematicsResult {
   camber: number;           // degrees
 }
 
+// ─── Arm lengths ────────────────────────────────────────────────────
+
+/** Derive lower and upper arm lengths (mm) from axle geometry. */
+export function armLengths(geo: AxleGeometry): { lowerLen: number; upperLen: number } {
+  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
+  const upperLen = lowerLen * geo.upperArmLengthRatio;
+  return { lowerLen, upperLen };
+}
+
 // ─── Derived geometry ───────────────────────────────────────────────
 
 /**
@@ -47,9 +56,7 @@ export function deriveInnerPivotHeights(
   const lowerBallJointZ = tyreRadius - halfUpright * Math.cos(kpiRad);
   const upperBallJointZ = tyreRadius + halfUpright * Math.cos(kpiRad);
 
-  // Arm lengths
-  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
-  const upperLen = lowerLen * geo.upperArmLengthRatio;
+  const { lowerLen, upperLen } = armLengths(geo);
 
   // Inner pivot Z above ground = ball joint Z minus arm rise
   const lowerInnerZ = lowerBallJointZ - lowerLen * Math.sin(degToRad(geo.lowerArmAngle));
@@ -80,8 +87,7 @@ export function computePivotPositions(
 ) {
   const sign = isLeftSide ? -1 : 1;
 
-  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
-  const upperLen = lowerLen * geo.upperArmLengthRatio;
+  const { lowerLen, upperLen } = armLengths(geo);
   const lowerAngle = degToRad(geo.lowerArmAngle);
   const upperAngle = degToRad(geo.upperArmAngle);
 
@@ -178,8 +184,7 @@ export function computeCamberFromTravel(
   geo: AxleGeometry,
   shockCompression: number,
 ): number {
-  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
-  const upperLen = lowerLen * geo.upperArmLengthRatio;
+  const { lowerLen, upperLen } = armLengths(geo);
 
   if (lowerLen <= 0) return geo.staticCamber;
 

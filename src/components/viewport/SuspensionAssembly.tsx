@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Line } from '@react-three/drei'
 import { useVehicleStore } from '../../store/useVehicleStore'
 import { useSimulationStore } from '../../store/useSimulationStore'
-import { deriveInnerPivotHeights } from '../../engine/kinematics'
+import { armLengths, deriveInnerPivotHeights } from '../../engine/kinematics'
 import type { Corner } from '../../types/suspension'
 
 const CYAN = '#00FFE0'
@@ -166,8 +166,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const tyreRadius = vehicle.tyreRadius
 
   // ── Derived lengths & angles ──
-  const lowerWishboneLength = geo.lowerWishboneRatio * geo.trackWidth / 2
-  const upperArmLength = lowerWishboneLength * geo.upperArmLengthRatio
+  const { lowerLen: lowerWishboneLength, upperLen: upperArmLength } = armLengths(geo)
 
   // Derive inner pivot heights from user-facing params
   const { innerPivotHeightLower, innerPivotHeightUpper } =
@@ -367,10 +366,8 @@ function Chassis() {
   const rearPivots = deriveInnerPivotHeights(rearGeo, vehicle.rideHeight, vehicle.tyreRadius)
 
   // Arm lengths for computing lateral positions
-  const fLowerLen = frontGeo.lowerWishboneRatio * frontGeo.trackWidth / 2
-  const fUpperLen = fLowerLen * frontGeo.upperArmLengthRatio
-  const rLowerLen = rearGeo.lowerWishboneRatio * rearGeo.trackWidth / 2
-  const rUpperLen = rLowerLen * rearGeo.upperArmLengthRatio
+  const { lowerLen: fLowerLen, upperLen: fUpperLen } = armLengths(frontGeo)
+  const { lowerLen: rLowerLen, upperLen: rUpperLen } = armLengths(rearGeo)
 
   // Inner pivot lateral positions (distance from centreline)
   const fLowerX = frontGeo.trackWidth / 2 - fLowerLen * Math.cos(frontGeo.lowerArmAngle * Math.PI / 180)
