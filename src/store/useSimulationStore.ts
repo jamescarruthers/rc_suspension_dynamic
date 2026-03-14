@@ -21,6 +21,7 @@ function defaultCornerState(wheelPosition: number = 42): PerCornerState {
     hydraulicForce: 0,
     hydraulicPressure: 0,
     camberAngle: 0,
+    steeringAngle: 0,
     wheelAirborne: false,
   };
 }
@@ -73,6 +74,8 @@ function defaultSimulationState(): SimulationState {
     // Input state
     rollInput: 0,
     pitchInput: 0,
+    frontSteeringAngle: 0,
+    rearSteeringAngle: 0,
     // Drop test
     dropHeight: 50,
     dropRollAngle: 0,
@@ -109,6 +112,8 @@ interface SimulationStore extends SimulationState {
   // Input controls
   setRollInput: (degrees: number) => void;
   setPitchInput: (degrees: number) => void;
+  setFrontSteeringAngle: (degrees: number) => void;
+  setRearSteeringAngle: (degrees: number) => void;
 
   // Drop test
   setDropHeight: (mm: number) => void;
@@ -165,6 +170,10 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   setRollInput: (degrees) => set({ rollInput: degrees }),
 
   setPitchInput: (degrees) => set({ pitchInput: degrees }),
+
+  setFrontSteeringAngle: (degrees) => set({ frontSteeringAngle: degrees }),
+
+  setRearSteeringAngle: (degrees) => set({ rearSteeringAngle: degrees }),
 
   setDropHeight: (mm) => set({ dropHeight: mm }),
 

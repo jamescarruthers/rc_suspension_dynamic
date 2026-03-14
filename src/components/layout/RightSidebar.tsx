@@ -5,6 +5,7 @@ import { SimControls } from '../simulation/SimControls'
 import { DropTestInput } from '../simulation/DropTestInput'
 import { RollInput } from '../simulation/RollInput'
 import { PitchInput } from '../simulation/PitchInput'
+import { SteeringInput } from '../simulation/SteeringInput'
 import { RoadSurfaceInput } from '../simulation/RoadSurfaceInput'
 import { SpeedControl } from '../simulation/SpeedControl'
 import { ForceToggle } from '../simulation/ForceToggle'
@@ -41,6 +42,7 @@ export function RightSidebar({ mobile = false }: { mobile?: boolean }) {
           <DropTestInput />
           <RollInput />
           <PitchInput />
+          <SteeringInput />
           <RoadSurfaceInput />
           <ForceToggle />
           <PresetSelector />

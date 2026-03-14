@@ -30,7 +30,7 @@ import { CORNERS } from '../types/suspension';
 import { computeTyreForce } from './tyreContact';
 import { computeCornerForces, computeSwayBarForce, computeMotionRatio } from './forces';
 import { computeHydraulicForces } from './hydraulics';
-import { updateKinematics } from './kinematics';
+import { updateKinematics, computeAckermannSteering } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 // ── Conversion helpers ──────────────────────────────────────────────
@@ -445,10 +445,20 @@ export function stepRapierSimulation(
   // Kinematics update (camber, roll centre)
   let frontRCH = 0;
   let rearRCH = 0;
+
+  const frontAck = computeAckermannSteering(
+    state.frontSteeringAngle, frontGeo.trackWidth, vehicle.wheelbase, frontGeo.ackermannArmLength,
+  );
+  const rearAck = computeAckermannSteering(
+    state.rearSteeringAngle, rearGeo.trackWidth, vehicle.wheelbase, rearGeo.ackermannArmLength,
+  );
+
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
     const kin = updateKinematics(geo, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
     newCorners[c].camberAngle = kin.camber;
+    const ack = isFront(c) ? frontAck : rearAck;
+    newCorners[c].steeringAngle = isLeft(c) ? ack.leftAngle : ack.rightAngle;
     if (isFront(c)) frontRCH += kin.rollCentreHeight * 0.5;
     else rearRCH += kin.rollCentreHeight * 0.5;
   }
@@ -653,6 +663,7 @@ function defaultCornerState(): PerCornerState {
     hydraulicForce: 0,
     hydraulicPressure: 0,
     camberAngle: 0,
+    steeringAngle: 0,
     wheelAirborne: false,
   };
 }

@@ -36,6 +36,7 @@ const defaultFrontGeometry: AxleGeometry = {
   casterAngle: 25,
   staticCamber: -1,
   staticToe: 1,
+  ackermannArmLength: 15,
   antiDive: 10,
   antiSquat: 0,
 };
@@ -52,6 +53,7 @@ const defaultRearGeometry: AxleGeometry = {
   casterAngle: 0,
   staticCamber: -1,
   staticToe: 0.5,
+  ackermannArmLength: 15,
   antiDive: 0,
   antiSquat: 15,
 };
@@ -178,6 +180,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
         antiDive: 0,
         antiSquat: 15,
         staticToe: 0.5,
+        ackermannArmLength: 15,
       },
       rearShock: { ...frontShock },
     });
@@ -194,6 +197,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
         antiDive: 10,
         antiSquat: 0,
         staticToe: 1,
+        ackermannArmLength: 15,
       },
       frontShock: { ...rearShock },
     });

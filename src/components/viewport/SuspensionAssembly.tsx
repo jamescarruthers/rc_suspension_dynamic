@@ -211,8 +211,9 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
   const outerLowerX = innerMidLowerX + sideSign * lowerDX
 
-  // Dynamic camber
+  // Dynamic camber and steering
   const camber = cornerState.camberAngle
+  const steerAngle = cornerState.steeringAngle
 
   // ── Upper ball joint derived from upright attached to lower ball joint ──
   // Lower wishbone determines lower ball joint, then the upright (rigid link)
@@ -235,6 +236,17 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const kingpinMidY = (outerLowerY + outerUpperY) / 2
   const wheelXActual = kingpinMidX
 
+  // ── Steering arm ──
+  // Extends from the lower ball joint inward toward rear axle centreline.
+  // The arm angle from lateral axis (at rest) points toward the rear axle.
+  const halfTrack = geo.trackWidth / 2
+  const ackermannRestAngle = Math.atan2(halfTrack, vehicle.wheelbase)
+  const steerRad = (steerAngle * Math.PI) / 180
+  const armAngle = ackermannRestAngle + steerRad
+  const armTipX = outerLowerX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
+  const armTipZ = outerLowerZ - geo.ackermannArmLength * Math.sin(armAngle)
+  const armTipY = outerLowerY
+
   return (
     <group>
       {/* Tyre */}
@@ -243,7 +255,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         radius={tyreRadius}
         width={vehicle.tyreWidth}
         camber={-camber * sideSign}
-        toe={geo.staticToe * sideSign}
+        toe={(geo.staticToe + steerAngle) * sideSign}
       />
 
       {/* Contact patch shadow on ground */}
@@ -351,6 +363,17 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       <JointSphere position={[outerLowerX, outerLowerY, outerLowerZ]} />
       <JointSphere position={innerPivotUpper} color={LIGHT_CYAN} />
       <JointSphere position={[outerUpperX, outerUpperY, outerUpperZ]} color={LIGHT_CYAN} />
+
+      {/* Steering arm */}
+      <Line
+        points={[
+          [outerLowerX, outerLowerY, outerLowerZ],
+          [armTipX, armTipY, armTipZ],
+        ]}
+        color={GREEN}
+        lineWidth={1.5}
+      />
+      <JointSphere position={[armTipX, armTipY, armTipZ]} color={GREEN} size={1.5} />
     </group>
   )
 }
@@ -634,14 +657,17 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
   )
 }
 
-function SteeringLinkage() {
+function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   const vehicle = useVehicleStore((s) => s.vehicle)
-  const frontGeo = useVehicleStore((s) => s.frontGeometry)
+  const geo = useVehicleStore((s) => axle === 'front' ? s.frontGeometry : s.rearGeometry)
+  const leftCorner = useSimulationStore((s) => s.corners[axle === 'front' ? 'FL' : 'RL'])
+  const rightCorner = useSimulationStore((s) => s.corners[axle === 'front' ? 'FR' : 'RR'])
   const chassisHeave = useSimulationStore((s) => s.chassisHeave)
   const rollAngle = useSimulationStore((s) => s.rollAngle)
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
 
-  const { innerPivotHeightLower } = deriveInnerPivotHeights(frontGeo, vehicle.rideHeight, vehicle.tyreRadius)
+  const { innerPivotHeightLower } = deriveInnerPivotHeights(geo, vehicle.rideHeight, vehicle.tyreRadius)
+  const { lowerLen: lowerWishboneLength } = armLengths(geo)
 
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
@@ -649,23 +675,53 @@ function SteeringLinkage() {
     rotateWithChassis(x, y, z, rollRad, pitchRad)
 
   const frontWeightFrac = vehicle.weightDistribution / 100
-  const z = vehicle.wheelbase * (1 - frontWeightFrac) - 5
-  const y = chassisHeave + innerPivotHeightLower
-  const halfTrack = frontGeo.trackWidth / 2
+  const z = axle === 'front'
+    ? vehicle.wheelbase * (1 - frontWeightFrac)
+    : -vehicle.wheelbase * frontWeightFrac
+  const halfTrack = geo.trackWidth / 2
+  const ackermannRestAngle = Math.atan2(halfTrack, vehicle.wheelbase)
+  const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
+  const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
 
-  const bL = rot(-8, y, z)
-  const bC = rot(0, y + 5, z)
-  const bR = rot(8, y, z)
-  const tL = rot(-halfTrack + 5, y, z)
-  const tR = rot(halfTrack - 5, y, z)
+  // Compute arm tip positions for each side
+  const computeArmTip = (cornerState: typeof leftCorner, sideSign: number) => {
+    const lowerJointOffsetY = staticLowerOuterY - vehicle.tyreRadius
+    const outerLowerY = cornerState.wheelPosition + lowerJointOffsetY
+
+    const innerPivotXLocal = sideSign * (halfTrack - lowerWishboneLength)
+    const innerLowerYLocal = chassisHeave + innerPivotHeightLower
+    const innerMidX = rot(innerPivotXLocal, innerLowerYLocal, z)[0]
+    const innerMidY = rot(innerPivotXLocal, innerLowerYLocal, z)[1]
+
+    const lowerDY = outerLowerY - innerMidY
+    const lowerDXSq = lowerWishboneLength * lowerWishboneLength - lowerDY * lowerDY
+    const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
+    const outerLowerX = innerMidX + sideSign * lowerDX
+
+    const steerRad = (cornerState.steeringAngle * Math.PI) / 180
+    const armAngle = ackermannRestAngle + steerRad
+    const tipX = outerLowerX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
+    const tipZ = z - geo.ackermannArmLength * Math.sin(armAngle)
+    return [tipX, outerLowerY, tipZ] as [number, number, number]
+  }
+
+  const leftTip = computeArmTip(leftCorner, -1)
+  const rightTip = computeArmTip(rightCorner, 1)
+
+  // Bellcrank at chassis centre
+  const bellcrankY = chassisHeave + innerPivotHeightLower
+  const bellcrankZ = z - 5
+  const bC = rot(0, bellcrankY + 5, bellcrankZ)
+  const bL = rot(-8, bellcrankY, bellcrankZ)
+  const bR = rot(8, bellcrankY, bellcrankZ)
 
   return (
     <group>
       {/* Bellcrank */}
       <Line points={[bL, bC, bR]} color={GREEN} lineWidth={1.5} />
-      {/* Tie rods */}
-      <Line points={[bL, tL]} color={GREEN} lineWidth={1} />
-      <Line points={[bR, tR]} color={GREEN} lineWidth={1} />
+      {/* Tie rods from bellcrank to steering arm tips */}
+      <Line points={[bL, leftTip]} color={GREEN} lineWidth={1} />
+      <Line points={[bR, rightTip]} color={GREEN} lineWidth={1} />
     </group>
   )
 }
@@ -680,7 +736,8 @@ export function SuspensionAssembly() {
       <CornerAssembly corner="RR" side="right" />
       <AntiRollBarVisual axle="front" />
       <AntiRollBarVisual axle="rear" />
-      <SteeringLinkage />
+      <SteeringLinkage axle="front" />
+      <SteeringLinkage axle="rear" />
     </group>
   )
 }

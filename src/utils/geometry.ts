@@ -122,6 +122,39 @@ export function lineIntersection2D(
   };
 }
 
+// ─── Circle-circle intersection ─────────────────────────────────────
+
+/**
+ * Find the two intersection points of two circles in 2D.
+ * Returns null if no intersection exists (circles too far apart or nested).
+ * Returns [point1, point2] where point1 is the "left" solution and point2
+ * is the "right" solution relative to the line between centres.
+ */
+export function circleCircleIntersection(
+  c1: Point2D, r1: number,
+  c2: Point2D, r2: number,
+): [Point2D, Point2D] | null {
+  const dx = c2.x - c1.x;
+  const dy = c2.y - c1.y;
+  const d = Math.sqrt(dx * dx + dy * dy);
+
+  if (d > r1 + r2 + 1e-6 || d < Math.abs(r1 - r2) - 1e-6 || d < 1e-10) {
+    return null;
+  }
+
+  const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d);
+  const hSq = r1 * r1 - a * a;
+  const h = hSq > 0 ? Math.sqrt(hSq) : 0;
+
+  const mx = c1.x + a * dx / d;
+  const my = c1.y + a * dy / d;
+
+  return [
+    { x: mx + h * dy / d, y: my - h * dx / d },
+    { x: mx - h * dy / d, y: my + h * dx / d },
+  ];
+}
+
 // ─── Scalar helpers ──────────────────────────────────────────────────
 
 /** Clamp value between min and max */
