@@ -81,10 +81,11 @@ export function RoadSurfaceInput() {
           <ParamSlider label="Speed" value={roadSpeed} min={10} max={2000} step={10} unit="mm/s" onChange={(v) => setRoadSurface({ roadSpeed: v })} />
 
           {roadSurfaceType === 'washboard' && (
-            <>
-              <ParamSlider label="Amplitude" value={roadAmplitude} min={0.5} max={10} step={0.5} unit="mm" onChange={(v) => setRoadSurface({ roadAmplitude: v })} />
-              <ParamSlider label="Frequency" value={roadFrequency} min={1} max={50} step={1} unit="Hz" onChange={(v) => setRoadSurface({ roadFrequency: v })} />
-            </>
+            <ParamSlider label="Amplitude" value={roadAmplitude} min={0.5} max={10} step={0.5} unit="mm" onChange={(v) => setRoadSurface({ roadAmplitude: v })} />
+          )}
+
+          {(roadSurfaceType === 'washboard' || roadSurfaceType === 'singleBump' || roadSurfaceType === 'speedBump') && (
+            <ParamSlider label="Frequency" value={roadFrequency} min={0} max={50} step={0.5} unit="Hz" onChange={(v) => setRoadSurface({ roadFrequency: v })} />
           )}
         </>
       )}

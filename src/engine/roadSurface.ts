@@ -53,6 +53,25 @@ function flat(): Record<Corner, number> {
   return { FL: 0, FR: 0, RL: 0, RR: 0 };
 }
 
+/**
+ * Compute repeating bump position.
+ * If frequency > 0, bumps repeat with spacing = speed / frequency.
+ * Returns position within the current bump cycle.
+ */
+function repeatingBumpPosition(
+  pos: number,
+  width: number,
+  speed: number,
+  frequency: number,
+): number {
+  if (frequency <= 0 || speed <= 0) return pos; // single-shot
+  const spacing = speed / frequency; // mm between bump starts
+  if (spacing <= width) return pos; // bumps overlap, treat as single
+  if (pos < 0) return pos; // hasn't reached first bump yet
+  const posInCycle = pos % spacing;
+  return posInCycle;
+}
+
 function singleBump(
   params: RoadProfileParams,
   positions: CornerPositions,
@@ -61,7 +80,8 @@ function singleBump(
   const result: Record<Corner, number> = { FL: 0, FR: 0, RL: 0, RR: 0 };
   const target = params.targetCorner ?? 'FL';
 
-  const pos = cornerBumpPosition(time, params.speed, positions[target].x);
+  const rawPos = cornerBumpPosition(time, params.speed, positions[target].x);
+  const pos = repeatingBumpPosition(rawPos, params.width, params.speed, params.frequency);
   result[target] = halfSineBump(pos, params.width, params.height);
 
   return result;
@@ -76,7 +96,8 @@ function speedBump(
   const corners: Corner[] = ['FL', 'FR', 'RL', 'RR'];
 
   for (const c of corners) {
-    const pos = cornerBumpPosition(time, params.speed, positions[c].x);
+    const rawPos = cornerBumpPosition(time, params.speed, positions[c].x);
+    const pos = repeatingBumpPosition(rawPos, params.width, params.speed, params.frequency);
     result[c] = halfSineBump(pos, params.width, params.height);
   }
 
