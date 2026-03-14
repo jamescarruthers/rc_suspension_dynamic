@@ -186,24 +186,24 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockTowerYLocal = chassisHeave + shock.towerHeight
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
-  // ── Chassis height at this corner (for outer joint approximation) ──
-  const chassisAtCornerY = rot(
-    sideSign * geo.trackWidth / 2,
-    vehicle.rideHeight + chassisHeave,
-    longitudinalOffset,
-  )[1]
-
-  // ── Outer ball joints (hub-side, driven by wheel travel) ──
+  // ── Outer ball joints (hub-side, rigidly attached to wheel/upright) ──
+  // Compute static ball joint heights at design ride height from arm geometry
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
+  const upperArmAngleRad = (geo.upperArmAngle * Math.PI) / 180
+  const staticLowerOuterY = geo.innerPivotHeightLower + geo.lowerWishboneLength * Math.sin(lowerArmAngleRad)
+  const staticUpperOuterY = geo.innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
+
+  // Fixed offsets of ball joints relative to wheel centre (constant for a given geometry)
+  const lowerJointOffsetY = staticLowerOuterY - tyreRadius
+  const upperJointOffsetY = staticUpperOuterY - tyreRadius
+
+  // Ball joints move rigidly with the wheel — upright length stays constant
   const outerLowerX = wheelX
-  const outerLowerY = innerPivotLowerFore[1] + geo.lowerWishboneLength * Math.sin(lowerArmAngleRad) +
-    (wheelY - chassisAtCornerY) * 0.3
+  const outerLowerY = wheelY + lowerJointOffsetY
   const outerLowerZ = longitudinalOffset
 
-  const upperArmAngleRad = (geo.upperArmAngle * Math.PI) / 180
   const outerUpperX = wheelX
-  const outerUpperY = innerPivotUpper[1] + upperArmLength * Math.sin(upperArmAngleRad) +
-    (wheelY - chassisAtCornerY) * 0.5
+  const outerUpperY = wheelY + upperJointOffsetY
   const outerUpperZ = longitudinalOffset
 
   // Shock lower mount (on wishbone, interpolated between inner pivot and outer ball joint)
