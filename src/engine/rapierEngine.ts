@@ -267,6 +267,7 @@ export function stepRapierSimulation(
   if (!worldState) return { time: state.time + dt };
 
   const { world, chassisBody, wheelBodies } = worldState;
+  world.timestep = dt; // Sync Rapier timestep with caller
   const newTime = state.time + dt;
 
   // ── Road surface heights ──────────────────────────────────────────
