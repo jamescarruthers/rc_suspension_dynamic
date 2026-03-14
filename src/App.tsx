@@ -7,6 +7,7 @@ import { Viewport } from './components/viewport/Scene'
 import { useSimulationStore } from './store/useSimulationStore'
 import { useVehicleStore } from './store/useVehicleStore'
 import { stepSimulation, findStaticEquilibrium } from './engine/integration'
+import { stepRK4Simulation } from './engine/rk4Engine'
 import {
   initRapier,
   isRapierReady,
@@ -93,6 +94,19 @@ function App() {
       let newState: Partial<typeof state>
       if (useRapier && isRapierReady()) {
         newState = stepRapierSimulation(
+          state,
+          veh.vehicle,
+          veh.frontGeometry,
+          veh.rearGeometry,
+          veh.frontShock,
+          veh.rearShock,
+          veh.frontSwayBar,
+          veh.rearSwayBar,
+          veh.hydraulic,
+          dt
+        )
+      } else if (state.physicsEngine === 'rk4') {
+        newState = stepRK4Simulation(
           state,
           veh.vehicle,
           veh.frontGeometry,

@@ -7,6 +7,7 @@ export function PhysicsEngineToggle() {
 
   const options: { value: PhysicsEngineType; label: string }[] = [
     { value: 'custom', label: 'Custom' },
+    { value: 'rk4', label: 'RK4' },
     { value: 'rapier', label: 'Rapier' },
   ]
 
