@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Line } from '@react-three/drei'
 import { useVehicleStore } from '../../store/useVehicleStore'
 import { useSimulationStore } from '../../store/useSimulationStore'
-import { deriveUpperArmAngle } from '../../engine/kinematics'
+import { deriveInnerPivotHeights } from '../../engine/kinematics'
 import type { Corner } from '../../types/suspension'
 
 const CYAN = '#00FFE0'
@@ -167,15 +167,19 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   // ── Derived lengths & angles ──
   const lowerWishboneLength = geo.lowerWishboneRatio * geo.trackWidth / 2
-  const upperArmAngleDeg = deriveUpperArmAngle(geo)
+  const upperArmAngleDeg = geo.upperArmAngle
   const upperArmLength = lowerWishboneLength * geo.upperArmLengthRatio
+
+  // Derive inner pivot heights from user-facing params
+  const { innerPivotHeightLower, innerPivotHeightUpper } =
+    deriveInnerPivotHeights(geo, vehicle.rideHeight, tyreRadius)
 
   // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
   // Inner pivot positions on the chassis
   const innerPivotXLocal = sideSign * (geo.trackWidth / 2 - lowerWishboneLength)
-  const innerLowerYLocal = chassisHeave + geo.innerPivotHeightLower
-  const innerUpperYLocal = chassisHeave + geo.innerPivotHeightUpper
+  const innerLowerYLocal = chassisHeave + innerPivotHeightLower
+  const innerUpperYLocal = chassisHeave + innerPivotHeightUpper
 
   const innerPivotLowerFore = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset + geo.innerPivotSpread / 2)
   const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset - geo.innerPivotSpread / 2)
@@ -189,7 +193,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockAngleRad = (shock.shockAngle * Math.PI) / 180
   const staticLowerMountXLocal = innerPivotXLocal +
     sideSign * lowerWishboneLength * Math.cos(lowerArmAngleRad) * shock.damperAttachmentRatio
-  const staticLowerMountYLocal = geo.innerPivotHeightLower +
+  const staticLowerMountYLocal = innerPivotHeightLower +
     lowerWishboneLength * Math.sin(lowerArmAngleRad) * shock.damperAttachmentRatio
   const shockTowerXLocal = staticLowerMountXLocal - sideSign * shock.shockLength * Math.sin(shockAngleRad)
   const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
@@ -198,8 +202,8 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // ── Outer ball joints — maintain constant arm lengths (rigid links) ──
   // Compute static ball joint heights at design ride height from arm geometry
   const upperArmAngleRad = (upperArmAngleDeg * Math.PI) / 180
-  const staticLowerOuterY = geo.innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
-  const staticUpperOuterY = geo.innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
+  const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
+  const staticUpperOuterY = innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
 
   // Fixed vertical offsets of ball joints relative to wheel centre
   const lowerJointOffsetY = staticLowerOuterY - tyreRadius
@@ -354,6 +358,8 @@ function Chassis() {
   const vehicle = useVehicleStore((s) => s.vehicle)
   const frontGeo = useVehicleStore((s) => s.frontGeometry)
   const rearGeo = useVehicleStore((s) => s.rearGeometry)
+  const frontShock = useVehicleStore((s) => s.frontShock)
+  const rearShock = useVehicleStore((s) => s.rearShock)
   const chassisHeave = useSimulationStore((s) => s.chassisHeave)
   const rollAngle = useSimulationStore((s) => s.rollAngle)
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
@@ -361,68 +367,227 @@ function Chassis() {
   const frontWeightFrac = vehicle.weightDistribution / 100
   const frontZ = vehicle.wheelbase * (1 - frontWeightFrac)
   const rearZ = -vehicle.wheelbase * frontWeightFrac
-  const frontHalfWidth = frontGeo.trackWidth * 0.3
-  const rearHalfWidth = rearGeo.trackWidth * 0.3
   const chassisY = vehicle.rideHeight + chassisHeave
-  const thickness = 10
+  const plateThickness = 3 // mm — thin plate like real RC chassis
 
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
 
-  // Wireframe box vertices (trapezoid shape)
-  const top = chassisY + thickness / 2
-  const bot = chassisY - thickness / 2
+  // Derive inner pivot positions for each axle to size the chassis correctly
+  const frontPivots = deriveInnerPivotHeights(frontGeo, vehicle.rideHeight, vehicle.tyreRadius)
+  const rearPivots = deriveInnerPivotHeights(rearGeo, vehicle.rideHeight, vehicle.tyreRadius)
+
+  // Arm lengths for computing lateral positions
+  const fLowerLen = frontGeo.lowerWishboneRatio * frontGeo.trackWidth / 2
+  const fUpperLen = fLowerLen * frontGeo.upperArmLengthRatio
+  const rLowerLen = rearGeo.lowerWishboneRatio * rearGeo.trackWidth / 2
+  const rUpperLen = rLowerLen * rearGeo.upperArmLengthRatio
+
+  // Inner pivot lateral positions (distance from centreline)
+  const fLowerX = frontGeo.trackWidth / 2 - fLowerLen * Math.cos(frontGeo.lowerArmAngle * Math.PI / 180)
+  const fUpperX = frontGeo.trackWidth / 2 - fUpperLen * Math.cos(frontGeo.upperArmAngle * Math.PI / 180)
+  const rLowerX = rearGeo.trackWidth / 2 - rLowerLen * Math.cos(rearGeo.lowerArmAngle * Math.PI / 180)
+  const rUpperX = rearGeo.trackWidth / 2 - rUpperLen * Math.cos(rearGeo.upperArmAngle * Math.PI / 180)
+
+  // Bulkhead half-widths = widest inner pivot at each axle
+  const fBulkheadHW = Math.max(fLowerX, fUpperX)
+  const rBulkheadHW = Math.max(rLowerX, rUpperX)
+
+  // Main plate width narrows slightly between bulkheads
+  const plateHWFront = fBulkheadHW
+  const plateHWRear = rBulkheadHW
+
+  // Plate vertical position
+  const plateTop = chassisY + plateThickness / 2
+  const plateBot = chassisY - plateThickness / 2
+
+  // Bulkhead heights (from lower to upper pivot)
+  const fBulkBot = chassisY + frontPivots.innerPivotHeightLower - 2
+  const fBulkTop = chassisY + frontPivots.innerPivotHeightUpper + 2
+  const rBulkBot = chassisY + rearPivots.innerPivotHeightLower - 2
+  const rBulkTop = chassisY + rearPivots.innerPivotHeightUpper + 2
+
+  // Shock tower top positions (derived from shock geometry)
+  const fShockAngleRad = frontShock.shockAngle * Math.PI / 180
+  const rShockAngleRad = rearShock.shockAngle * Math.PI / 180
+  // Shock towers rise above the bulkhead — approximate top mount position
+  const fTowerTopY = chassisY + frontPivots.innerPivotHeightLower +
+    fLowerLen * Math.sin(frontGeo.lowerArmAngle * Math.PI / 180) * frontShock.damperAttachmentRatio +
+    frontShock.shockLength * Math.cos(fShockAngleRad)
+  const rTowerTopY = chassisY + rearPivots.innerPivotHeightLower +
+    rLowerLen * Math.sin(rearGeo.lowerArmAngle * Math.PI / 180) * rearShock.damperAttachmentRatio +
+    rearShock.shockLength * Math.cos(rShockAngleRad)
+  // Shock tower lateral inset from bulkhead edge
+  const fTowerX = frontShock.shockLength * Math.sin(fShockAngleRad)
+  const rTowerX = rearShock.shockLength * Math.sin(rShockAngleRad)
+  const fTowerHW = Math.max(fBulkheadHW - fTowerX, 8)
+  const rTowerHW = Math.max(rBulkheadHW - rTowerX, 8)
 
   return (
     <group rotation={[0, 0, rollRad]}>
       <group rotation={[pitchRad, 0, 0]}>
-        {/* Top face */}
+        {/* ── Main chassis plate ── */}
+        {/* Top surface */}
         <Line
           points={[
-            [-frontHalfWidth, top, frontZ],
-            [frontHalfWidth, top, frontZ],
-            [rearHalfWidth, top, rearZ],
-            [-rearHalfWidth, top, rearZ],
-            [-frontHalfWidth, top, frontZ],
+            [-plateHWFront, plateTop, frontZ],
+            [plateHWFront, plateTop, frontZ],
+            [plateHWRear, plateTop, rearZ],
+            [-plateHWRear, plateTop, rearZ],
+            [-plateHWFront, plateTop, frontZ],
           ]}
           color={GREY}
           lineWidth={1}
         />
-        {/* Bottom face */}
+        {/* Bottom surface */}
         <Line
           points={[
-            [-frontHalfWidth, bot, frontZ],
-            [frontHalfWidth, bot, frontZ],
-            [rearHalfWidth, bot, rearZ],
-            [-rearHalfWidth, bot, rearZ],
-            [-frontHalfWidth, bot, frontZ],
+            [-plateHWFront, plateBot, frontZ],
+            [plateHWFront, plateBot, frontZ],
+            [plateHWRear, plateBot, rearZ],
+            [-plateHWRear, plateBot, rearZ],
+            [-plateHWFront, plateBot, frontZ],
           ]}
           color={GREY}
           lineWidth={1}
         />
-        {/* Verticals */}
-        {[
-          [-frontHalfWidth, frontZ],
-          [frontHalfWidth, frontZ],
-          [rearHalfWidth, rearZ],
-          [-rearHalfWidth, rearZ],
-        ].map(([x, z], i) => (
-          <Line
-            key={i}
-            points={[[x, bot, z], [x, top, z]]}
-            color={GREY}
-            lineWidth={1}
-          />
-        ))}
-        {/* Centreline */}
+        {/* Side rails connecting top and bottom at plate edges */}
+        <Line points={[[-plateHWFront, plateBot, frontZ], [-plateHWFront, plateTop, frontZ]]} color={GREY} lineWidth={1} />
+        <Line points={[[plateHWFront, plateBot, frontZ], [plateHWFront, plateTop, frontZ]]} color={GREY} lineWidth={1} />
+        <Line points={[[-plateHWRear, plateBot, rearZ], [-plateHWRear, plateTop, rearZ]]} color={GREY} lineWidth={1} />
+        <Line points={[[plateHWRear, plateBot, rearZ], [plateHWRear, plateTop, rearZ]]} color={GREY} lineWidth={1} />
+        {/* Longitudinal side rails */}
+        <Line points={[[-plateHWFront, plateTop, frontZ], [-plateHWRear, plateTop, rearZ]]} color={GREY} lineWidth={1} />
+        <Line points={[[plateHWFront, plateTop, frontZ], [plateHWRear, plateTop, rearZ]]} color={GREY} lineWidth={1} />
+        <Line points={[[-plateHWFront, plateBot, frontZ], [-plateHWRear, plateBot, rearZ]]} color={GREY} lineWidth={1} />
+        <Line points={[[plateHWFront, plateBot, frontZ], [plateHWRear, plateBot, rearZ]]} color={GREY} lineWidth={1} />
+
+        {/* ── Front bulkhead ── */}
         <Line
-          points={[[0, top + 1, frontZ + 10], [0, top + 1, rearZ - 10]]}
+          points={[
+            [-fBulkheadHW, fBulkBot, frontZ],
+            [fBulkheadHW, fBulkBot, frontZ],
+            [fBulkheadHW, fBulkTop, frontZ],
+            [-fBulkheadHW, fBulkTop, frontZ],
+            [-fBulkheadHW, fBulkBot, frontZ],
+          ]}
+          color={GREY}
+          lineWidth={1.5}
+        />
+        {/* Hinge pin lines at lower pivot height */}
+        <Line
+          points={[
+            [-fBulkheadHW - 2, chassisY + frontPivots.innerPivotHeightLower, frontZ],
+            [fBulkheadHW + 2, chassisY + frontPivots.innerPivotHeightLower, frontZ],
+          ]}
+          color={GREY}
+          lineWidth={1}
+          dashed dashSize={2} gapSize={2}
+        />
+        {/* Hinge pin lines at upper pivot height */}
+        <Line
+          points={[
+            [-fBulkheadHW - 2, chassisY + frontPivots.innerPivotHeightUpper, frontZ],
+            [fBulkheadHW + 2, chassisY + frontPivots.innerPivotHeightUpper, frontZ],
+          ]}
+          color={GREY}
+          lineWidth={1}
+          dashed dashSize={2} gapSize={2}
+        />
+
+        {/* ── Rear bulkhead ── */}
+        <Line
+          points={[
+            [-rBulkheadHW, rBulkBot, rearZ],
+            [rBulkheadHW, rBulkBot, rearZ],
+            [rBulkheadHW, rBulkTop, rearZ],
+            [-rBulkheadHW, rBulkTop, rearZ],
+            [-rBulkheadHW, rBulkBot, rearZ],
+          ]}
+          color={GREY}
+          lineWidth={1.5}
+        />
+        {/* Hinge pin lines at lower pivot height */}
+        <Line
+          points={[
+            [-rBulkheadHW - 2, chassisY + rearPivots.innerPivotHeightLower, rearZ],
+            [rBulkheadHW + 2, chassisY + rearPivots.innerPivotHeightLower, rearZ],
+          ]}
+          color={GREY}
+          lineWidth={1}
+          dashed dashSize={2} gapSize={2}
+        />
+        {/* Hinge pin lines at upper pivot height */}
+        <Line
+          points={[
+            [-rBulkheadHW - 2, chassisY + rearPivots.innerPivotHeightUpper, rearZ],
+            [rBulkheadHW + 2, chassisY + rearPivots.innerPivotHeightUpper, rearZ],
+          ]}
+          color={GREY}
+          lineWidth={1}
+          dashed dashSize={2} gapSize={2}
+        />
+
+        {/* ── Front shock towers ── */}
+        {/* Left tower */}
+        <Line
+          points={[
+            [-fBulkheadHW, fBulkTop, frontZ],
+            [-fTowerHW, fTowerTopY, frontZ],
+            [-fBulkheadHW + 4, fBulkTop, frontZ],
+          ]}
+          color={GREY}
+          lineWidth={1.5}
+        />
+        {/* Right tower */}
+        <Line
+          points={[
+            [fBulkheadHW, fBulkTop, frontZ],
+            [fTowerHW, fTowerTopY, frontZ],
+            [fBulkheadHW - 4, fBulkTop, frontZ],
+          ]}
+          color={GREY}
+          lineWidth={1.5}
+        />
+        {/* Tower mount spheres */}
+        <JointSphere position={[-fTowerHW, fTowerTopY, frontZ]} color={GREY} size={1.5} />
+        <JointSphere position={[fTowerHW, fTowerTopY, frontZ]} color={GREY} size={1.5} />
+
+        {/* ── Rear shock towers ── */}
+        {/* Left tower */}
+        <Line
+          points={[
+            [-rBulkheadHW, rBulkTop, rearZ],
+            [-rTowerHW, rTowerTopY, rearZ],
+            [-rBulkheadHW + 4, rBulkTop, rearZ],
+          ]}
+          color={GREY}
+          lineWidth={1.5}
+        />
+        {/* Right tower */}
+        <Line
+          points={[
+            [rBulkheadHW, rBulkTop, rearZ],
+            [rTowerHW, rTowerTopY, rearZ],
+            [rBulkheadHW - 4, rBulkTop, rearZ],
+          ]}
+          color={GREY}
+          lineWidth={1.5}
+        />
+        {/* Tower mount spheres */}
+        <JointSphere position={[-rTowerHW, rTowerTopY, rearZ]} color={GREY} size={1.5} />
+        <JointSphere position={[rTowerHW, rTowerTopY, rearZ]} color={GREY} size={1.5} />
+
+        {/* ── Centreline ── */}
+        <Line
+          points={[[0, plateTop + 1, frontZ + 10], [0, plateTop + 1, rearZ - 10]]}
           color={GREY}
           lineWidth={0.5}
           dashed
           dashSize={5}
           gapSize={5}
         />
+
         {/* CG marker */}
         <JointSphere position={[0, vehicle.cgHeight + chassisHeave, 0]} color="#FF0000" size={3} />
       </group>
@@ -440,6 +605,8 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
 
   if (!swayBar.enabled) return null
 
+  const { innerPivotHeightLower } = deriveInnerPivotHeights(geo, vehicle.rideHeight, vehicle.tyreRadius)
+
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
   const rot = (x: number, y: number, z: number): [number, number, number] =>
@@ -449,7 +616,7 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
   const z = axle === 'front'
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
-  const y = chassisHeave + geo.innerPivotHeightLower + 5
+  const y = chassisHeave + innerPivotHeightLower + 5
   const halfWidth = swayBar.armLength
 
   const pL = rot(-halfWidth, y, z)
@@ -475,6 +642,8 @@ function SteeringLinkage() {
   const rollAngle = useSimulationStore((s) => s.rollAngle)
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
 
+  const { innerPivotHeightLower } = deriveInnerPivotHeights(frontGeo, vehicle.rideHeight, vehicle.tyreRadius)
+
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
   const rot = (x: number, y: number, z: number): [number, number, number] =>
@@ -482,7 +651,7 @@ function SteeringLinkage() {
 
   const frontWeightFrac = vehicle.weightDistribution / 100
   const z = vehicle.wheelbase * (1 - frontWeightFrac) - 5
-  const y = chassisHeave + frontGeo.innerPivotHeightLower
+  const y = chassisHeave + innerPivotHeightLower
   const halfTrack = frontGeo.trackWidth / 2
 
   const bL = rot(-8, y, z)

@@ -33,10 +33,9 @@ export interface AxleGeometry {
   trackWidth: number;             // mm
   lowerWishboneRatio: number;     // ratio of half-track width (0-1)
   upperArmLengthRatio: number;    // ratio (upper arm length / lower arm length)
-  lowerArmAngle: number;          // degrees from horizontal
-  uprightHeight: number;          // mm, vertical distance between lower and upper ball joints
-  innerPivotHeightLower: number;  // mm above chassis reference
-  innerPivotHeightUpper: number;  // mm above chassis reference
+  lowerArmAngle: number;          // degrees from horizontal (at rest)
+  upperArmAngle: number;          // degrees from horizontal (at rest)
+  uprightHeight: number;          // mm, distance between lower and upper ball joints (centred on wheel)
   innerPivotSpread: number;       // mm (fore-aft spacing of lower A-arm pivots)
   kpiAngle: number;               // degrees (KPI)
   casterAngle: number;            // degrees
