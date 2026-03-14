@@ -1,8 +1,26 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import { useContext } from 'react'
 import { GroundPlane } from './GroundPlane'
 import { SuspensionAssembly } from './SuspensionAssembly'
 import { ForceArrows } from './ForceArrows'
+import { PerfStatsContext } from '../../App'
+
+function PerfStatsOverlay() {
+  const stats = useContext(PerfStatsContext)
+
+  const engineLabel = stats.physicsEngine === 'rk4' ? 'RK4' :
+    stats.physicsEngine === 'rapier' ? 'Rapier' : 'Euler'
+
+  return (
+    <div className="absolute bottom-2 left-2 text-[10px] font-mono leading-tight bg-[#111820]/80 border border-[#1E2D3D] rounded px-2 py-1.5 text-[#8899AA] backdrop-blur-sm select-none pointer-events-none">
+      <div className="text-[#00FFE0]">{engineLabel}</div>
+      <div>{stats.fps} FPS</div>
+      <div>{stats.physicsStepsPerSec.toLocaleString()} steps/s</div>
+      <div>t = {stats.simTime.toFixed(2)}s</div>
+    </div>
+  )
+}
 
 export function Viewport() {
   return (
@@ -26,6 +44,7 @@ export function Viewport() {
         <axesHelper args={[30]} />
       </Canvas>
       <CameraPresets />
+      <PerfStatsOverlay />
     </div>
   )
 }

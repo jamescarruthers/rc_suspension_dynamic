@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, createContext } from 'react'
 import { Header } from './components/layout/Header'
 import { LeftSidebar } from './components/layout/LeftSidebar'
 import { RightSidebar } from './components/layout/RightSidebar'
@@ -21,12 +21,37 @@ import {
 
 export type MobileTab = 'viewport' | 'params' | 'simulation' | 'graphs'
 
+export interface PerfStats {
+  fps: number
+  physicsStepsPerSec: number
+  physicsEngine: string
+  simTime: number
+}
+
+export const PerfStatsContext = createContext<PerfStats>({
+  fps: 0,
+  physicsStepsPerSec: 0,
+  physicsEngine: 'rk4',
+  simTime: 0,
+})
+
 function App() {
   const animFrameRef = useRef<number>(0)
   const lastTimeRef = useRef<number>(0)
   const accumRef = useRef<number>(0)
-  const prevEngineRef = useRef<string>('custom')
+  const prevEngineRef = useRef<string>('rk4')
   const [mobileTab, setMobileTab] = useState<MobileTab>('viewport')
+
+  // Performance stats tracking
+  const perfFrameCount = useRef(0)
+  const perfStepCount = useRef(0)
+  const perfLastSample = useRef(0)
+  const [perfStats, setPerfStats] = useState<PerfStats>({
+    fps: 0,
+    physicsStepsPerSec: 0,
+    physicsEngine: 'rk4',
+    simTime: 0,
+  })
 
   const sim = useSimulationStore()
   const vehicle = useVehicleStore()
@@ -141,6 +166,23 @@ function App() {
       steps++
     }
 
+    // Update performance counters
+    perfFrameCount.current++
+    perfStepCount.current += steps
+    if (perfLastSample.current === 0) perfLastSample.current = timestamp
+    const perfElapsed = timestamp - perfLastSample.current
+    if (perfElapsed >= 1000) {
+      setPerfStats({
+        fps: Math.round(perfFrameCount.current * 1000 / perfElapsed),
+        physicsStepsPerSec: Math.round(perfStepCount.current * 1000 / perfElapsed),
+        physicsEngine: state.physicsEngine,
+        simTime: state.time,
+      })
+      perfFrameCount.current = 0
+      perfStepCount.current = 0
+      perfLastSample.current = timestamp
+    }
+
     // Record graph data at ~30fps
     if (steps > 0) {
       const s = useSimulationStore.getState()
@@ -188,34 +230,36 @@ function App() {
   }, [physicsLoop])
 
   return (
-    <div className="flex flex-col w-full h-full">
-      <Header />
-      {/* Desktop layout */}
-      <div className="hidden md:flex flex-1 min-h-0">
-        <LeftSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <Viewport />
-          <BottomPanel />
+    <PerfStatsContext.Provider value={perfStats}>
+      <div className="flex flex-col w-full h-full">
+        <Header />
+        {/* Desktop layout */}
+        <div className="hidden md:flex flex-1 min-h-0">
+          <LeftSidebar />
+          <div className="flex-1 flex flex-col min-w-0">
+            <Viewport />
+            <BottomPanel />
+          </div>
+          <RightSidebar />
         </div>
-        <RightSidebar />
+        {/* Mobile layout */}
+        <div className="flex md:hidden flex-1 flex-col min-h-0">
+          <div className={`flex-1 min-h-0 flex flex-col ${mobileTab === 'viewport' ? '' : 'hidden'}`}>
+            <Viewport />
+          </div>
+          <div className={`flex-1 min-h-0 overflow-y-auto ${mobileTab === 'params' ? '' : 'hidden'}`}>
+            <LeftSidebar mobile />
+          </div>
+          <div className={`flex-1 min-h-0 overflow-y-auto ${mobileTab === 'simulation' ? '' : 'hidden'}`}>
+            <RightSidebar mobile />
+          </div>
+          <div className={`flex-1 min-h-0 ${mobileTab === 'graphs' ? '' : 'hidden'}`}>
+            <BottomPanel mobile />
+          </div>
+          <MobileTabBar activeTab={mobileTab} onTabChange={setMobileTab} />
+        </div>
       </div>
-      {/* Mobile layout */}
-      <div className="flex md:hidden flex-1 flex-col min-h-0">
-        <div className={`flex-1 min-h-0 flex flex-col ${mobileTab === 'viewport' ? '' : 'hidden'}`}>
-          <Viewport />
-        </div>
-        <div className={`flex-1 min-h-0 overflow-y-auto ${mobileTab === 'params' ? '' : 'hidden'}`}>
-          <LeftSidebar mobile />
-        </div>
-        <div className={`flex-1 min-h-0 overflow-y-auto ${mobileTab === 'simulation' ? '' : 'hidden'}`}>
-          <RightSidebar mobile />
-        </div>
-        <div className={`flex-1 min-h-0 ${mobileTab === 'graphs' ? '' : 'hidden'}`}>
-          <BottomPanel mobile />
-        </div>
-        <MobileTabBar activeTab={mobileTab} onTabChange={setMobileTab} />
-      </div>
-    </div>
+    </PerfStatsContext.Provider>
   )
 }
 
