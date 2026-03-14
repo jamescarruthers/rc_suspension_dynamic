@@ -106,8 +106,11 @@ export interface PerCornerState {
 
 // ─── Full simulation state ──────────────────────────────────────────
 
+export type PhysicsEngineType = 'custom' | 'rapier';
+
 export interface SimulationState {
   mode: 'kinematic' | 'dynamic';
+  physicsEngine: PhysicsEngineType;
   running: boolean;
   time: number;
   playbackSpeed: number;

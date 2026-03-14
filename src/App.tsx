@@ -7,14 +7,29 @@ import { Viewport } from './components/viewport/Scene'
 import { useSimulationStore } from './store/useSimulationStore'
 import { useVehicleStore } from './store/useVehicleStore'
 import { stepSimulation, findStaticEquilibrium } from './engine/integration'
+import {
+  initRapier,
+  isRapierReady,
+  buildRapierWorld,
+  stepRapierSimulation,
+  destroyRapierWorld,
+  syncRapierToState,
+  isRapierWorldBuilt,
+} from './engine/rapierEngine'
 
 function App() {
   const animFrameRef = useRef<number>(0)
   const lastTimeRef = useRef<number>(0)
   const accumRef = useRef<number>(0)
+  const prevEngineRef = useRef<string>('custom')
 
   const sim = useSimulationStore()
   const vehicle = useVehicleStore()
+
+  // Initialize Rapier WASM on mount
+  useEffect(() => {
+    initRapier().catch(console.error)
+  }, [])
 
   // Find static equilibrium on mount and when params change
   useEffect(() => {
@@ -35,6 +50,19 @@ function App() {
   const physicsLoop = useCallback((timestamp: number) => {
     const state = useSimulationStore.getState()
     const veh = useVehicleStore.getState()
+    const useRapier = state.physicsEngine === 'rapier'
+
+    // Handle engine switch: rebuild Rapier world or clean up
+    if (state.physicsEngine !== prevEngineRef.current) {
+      prevEngineRef.current = state.physicsEngine
+      if (useRapier && isRapierReady()) {
+        destroyRapierWorld()
+        buildRapierWorld(veh.vehicle, veh.frontGeometry, veh.rearGeometry, state)
+        syncRapierToState(state, veh.vehicle)
+      } else if (!useRapier) {
+        destroyRapierWorld()
+      }
+    }
 
     if (!state.running) {
       lastTimeRef.current = timestamp
@@ -51,19 +79,45 @@ function App() {
     let steps = 0
     const maxStepsPerFrame = 200
 
+    // Rebuild Rapier world if needed (after drop test, reset, etc.)
+    if (useRapier && isRapierReady()) {
+      if (state.rapierNeedsRebuild || !isRapierWorldBuilt()) {
+        destroyRapierWorld()
+        buildRapierWorld(veh.vehicle, veh.frontGeometry, veh.rearGeometry, state)
+        syncRapierToState(state, veh.vehicle)
+        useSimulationStore.setState({ rapierNeedsRebuild: false })
+      }
+    }
+
     while (accumRef.current >= dt && steps < maxStepsPerFrame) {
-      const newState = stepSimulation(
-        state,
-        veh.vehicle,
-        veh.frontGeometry,
-        veh.rearGeometry,
-        veh.frontShock,
-        veh.rearShock,
-        veh.frontSwayBar,
-        veh.rearSwayBar,
-        veh.hydraulic,
-        dt
-      )
+      let newState: Partial<typeof state>
+      if (useRapier && isRapierReady()) {
+        newState = stepRapierSimulation(
+          state,
+          veh.vehicle,
+          veh.frontGeometry,
+          veh.rearGeometry,
+          veh.frontShock,
+          veh.rearShock,
+          veh.frontSwayBar,
+          veh.rearSwayBar,
+          veh.hydraulic,
+          dt
+        )
+      } else {
+        newState = stepSimulation(
+          state,
+          veh.vehicle,
+          veh.frontGeometry,
+          veh.rearGeometry,
+          veh.frontShock,
+          veh.rearShock,
+          veh.frontSwayBar,
+          veh.rearSwayBar,
+          veh.hydraulic,
+          dt
+        )
+      }
       useSimulationStore.setState(newState)
       accumRef.current -= dt
       steps++
