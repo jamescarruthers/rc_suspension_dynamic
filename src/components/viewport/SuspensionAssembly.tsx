@@ -171,24 +171,17 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
     deriveInnerPivotHeights(geo, vehicle.rideHeight, tyreRadius)
 
   // ── Dynamic ball joint positions from 3D solver ──
-  // The kinematics solver computes BJ positions assuming the chassis is at
-  // ride height.  shockCompression = wheelPos − chassisHeightAtCorner, so the
-  // solver output is offset by the chassis displacement.  Add it back to get
-  // the true world-space vertical position of the ball joints.
-  const lateralArm = sideSign * (geo.trackWidth / 2)
-  const chassisOffsetY = chassisHeave
-    + lateralArm * Math.sin(rollRad)
-    + longitudinalOffset * Math.sin(pitchRad)
-
+  // The solver now receives the chassis height offset and produces
+  // world-space ball joint positions directly.
   const lowerBJ = cornerState.lowerBJPosition
   const upperBJ = cornerState.upperBJPosition
 
   // Convert to Three.js world coordinates
   const outerLowerX = sideSign * lowerBJ.lateral
-  const outerLowerY = lowerBJ.vertical + chassisOffsetY
+  const outerLowerY = lowerBJ.vertical
   const outerLowerZ = longitudinalOffset + lowerBJ.longitudinal
   const outerUpperX = sideSign * upperBJ.lateral
-  const outerUpperY = upperBJ.vertical + chassisOffsetY
+  const outerUpperY = upperBJ.vertical
   const outerUpperZ = longitudinalOffset + upperBJ.longitudinal
 
   // Dynamic camber and steering

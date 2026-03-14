@@ -450,7 +450,12 @@ export function stepRK4Simulation(
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
     const shock = isFront(c) ? frontShock : rearShock;
-    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
+    // Chassis vertical offset from ride height at this corner (for proper BJ world positions)
+    const arm = leverArms[c];
+    const chassisHeightOffset = sv[S_HEAVE]
+      + arm.lateral * Math.sin(finalRollRad)
+      + arm.longitudinal * Math.sin(finalPitchRad);
+    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c), chassisHeightOffset);
     newCorners[c].camberAngle = kin.camber;
     newCorners[c].dynamicKPI = kin.dynamicKPI;
     newCorners[c].dynamicCaster = kin.dynamicCaster;

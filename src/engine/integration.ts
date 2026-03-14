@@ -270,7 +270,13 @@ export function stepSimulation(
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
     const shock = isFront(c) ? frontShock : rearShock;
-    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
+    const arm = leverArms[c];
+    const newRollRad = newRoll * Math.PI / 180;
+    const newPitchRad = newPitch * Math.PI / 180;
+    const chassisHeightOffset = newHeave
+      + arm.lateral * Math.sin(newRollRad)
+      + arm.longitudinal * Math.sin(newPitchRad);
+    const kin = updateKinematics(geo, shock, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c), chassisHeightOffset);
     newCorners[c].camberAngle = kin.camber;
     newCorners[c].dynamicKPI = kin.dynamicKPI;
     newCorners[c].dynamicCaster = kin.dynamicCaster;
