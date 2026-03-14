@@ -175,7 +175,9 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
   // Inner pivot positions on the chassis
-  const innerPivotXLocal = sideSign * (geo.trackWidth / 2 - lowerWishboneLength)
+  // trackWidth = wheel-centre-to-wheel-centre; arms span from kingpin inward
+  const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
+  const innerPivotXLocal = sideSign * (kingpinHalfTrack - lowerWishboneLength)
   const innerLowerYLocal = chassisHeave + innerPivotHeightLower
   const innerUpperYLocal = chassisHeave + innerPivotHeightUpper
 
@@ -183,7 +185,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const innerPivotLowerAft = rot(innerPivotXLocal, innerLowerYLocal, longitudinalOffset - geo.innerPivotSpread / 2)
 
   // Upper arm inner pivot
-  const innerUpperXLocal = sideSign * (geo.trackWidth / 2 - upperArmLength)
+  const innerUpperXLocal = sideSign * (kingpinHalfTrack - upperArmLength)
   const innerPivotUpper = rot(innerUpperXLocal, innerUpperYLocal, longitudinalOffset)
 
   // Shock tower — derived from static lower mount position + shock vector
@@ -239,8 +241,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // ── Steering arm ──
   // Extends from the lower ball joint inward toward rear axle centreline.
   // The arm angle from lateral axis (at rest) points toward the rear axle.
-  const halfTrack = geo.trackWidth / 2
-  const ackermannRestAngle = Math.atan2(halfTrack, vehicle.wheelbase)
+  const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
   const steerRad = (steerAngle * Math.PI) / 180
   const armAngle = ackermannRestAngle + steerRad
   const armTipX = outerLowerX - sideSign * geo.ackermannArmLength * Math.cos(armAngle)
@@ -326,11 +327,11 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         gapSize={3}
       />
 
-      {/* Axle stub from kingpin centre to wheel */}
+      {/* Axle stub from kingpin centre outward to wheel hub */}
       <Line
         points={[
           [kingpinMidX, kingpinMidY, longitudinalOffset],
-          [wheelXActual, wheelY, wheelZ],
+          [kingpinMidX + sideSign * geo.hubOffset, kingpinMidY, longitudinalOffset],
         ]}
         color={WHITE}
         lineWidth={1.5}
@@ -406,10 +407,13 @@ function Chassis() {
   const { lowerLen: rLowerLen, upperLen: rUpperLen } = armLengths(rearGeo)
 
   // Inner pivot lateral positions (distance from centreline)
-  const fLowerX = frontGeo.trackWidth / 2 - fLowerLen * Math.cos(frontGeo.lowerArmAngle * Math.PI / 180)
-  const fUpperX = frontGeo.trackWidth / 2 - fUpperLen * Math.cos(frontGeo.upperArmAngle * Math.PI / 180)
-  const rLowerX = rearGeo.trackWidth / 2 - rLowerLen * Math.cos(rearGeo.lowerArmAngle * Math.PI / 180)
-  const rUpperX = rearGeo.trackWidth / 2 - rUpperLen * Math.cos(rearGeo.upperArmAngle * Math.PI / 180)
+  // Arms span from kingpin (trackWidth/2 - hubOffset) inward
+  const fKingpinHT = frontGeo.trackWidth / 2 - (frontGeo.hubOffset ?? 0)
+  const rKingpinHT = rearGeo.trackWidth / 2 - (rearGeo.hubOffset ?? 0)
+  const fLowerX = fKingpinHT - fLowerLen * Math.cos(frontGeo.lowerArmAngle * Math.PI / 180)
+  const fUpperX = fKingpinHT - fUpperLen * Math.cos(frontGeo.upperArmAngle * Math.PI / 180)
+  const rLowerX = rKingpinHT - rLowerLen * Math.cos(rearGeo.lowerArmAngle * Math.PI / 180)
+  const rUpperX = rKingpinHT - rUpperLen * Math.cos(rearGeo.upperArmAngle * Math.PI / 180)
 
   // Bulkhead half-widths = widest inner pivot at each axle
   const fBulkheadHW = Math.max(fLowerX, fUpperX)
@@ -668,6 +672,7 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
 
   const { innerPivotHeightLower } = deriveInnerPivotHeights(geo, vehicle.rideHeight, vehicle.tyreRadius)
   const { lowerLen: lowerWishboneLength } = armLengths(geo)
+  const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
 
   const rollRad = (rollAngle * Math.PI) / 180
   const pitchRad = (pitchAngle * Math.PI) / 180
@@ -678,8 +683,7 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
   const z = axle === 'front'
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
-  const halfTrack = geo.trackWidth / 2
-  const ackermannRestAngle = Math.atan2(halfTrack, vehicle.wheelbase)
+  const ackermannRestAngle = Math.atan2(kingpinHalfTrack, vehicle.wheelbase)
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
   const staticLowerOuterY = innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
 
@@ -688,7 +692,7 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
     const lowerJointOffsetY = staticLowerOuterY - vehicle.tyreRadius
     const outerLowerY = cornerState.wheelPosition + lowerJointOffsetY
 
-    const innerPivotXLocal = sideSign * (halfTrack - lowerWishboneLength)
+    const innerPivotXLocal = sideSign * (kingpinHalfTrack - lowerWishboneLength)
     const innerLowerYLocal = chassisHeave + innerPivotHeightLower
     const innerMidX = rot(innerPivotXLocal, innerLowerYLocal, z)[0]
     const innerMidY = rot(innerPivotXLocal, innerLowerYLocal, z)[1]
