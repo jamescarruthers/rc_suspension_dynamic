@@ -233,10 +233,11 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const shockLowerY = innerPivotLowerFore[1] + (outerLowerY - innerPivotLowerFore[1]) * frac
   const shockLowerZ = innerPivotLowerFore[2] + (outerLowerZ - innerPivotLowerFore[2]) * frac
 
-  // Wheel centre sits at the kingpin midpoint (centre of upright)
+  // Kingpin midpoint (centre of upright)
   const kingpinMidX = (outerLowerX + outerUpperX) / 2
   const kingpinMidY = (outerLowerY + outerUpperY) / 2
-  const wheelXActual = kingpinMidX
+  // Wheel centre is at the stub tip, hubOffset outward from kingpin
+  const wheelXActual = kingpinMidX + sideSign * (geo.hubOffset ?? 0)
 
   // ── Steering arm ──
   // Extends from the lower ball joint inward toward rear axle centreline.
