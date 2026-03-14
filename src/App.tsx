@@ -95,7 +95,6 @@ function App() {
       vehicle.hydraulic,
       5000,
       getStepFn(),
-      state.physicsHz,
     )
     sim.updateState(eqState)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,10 +105,28 @@ function App() {
     const veh = useVehicleStore.getState()
     const useRapier = state.physicsEngine === 'rapier'
 
-    // Handle physicsHz change: reset accumulator to prevent burst stepping
+    // Handle physicsHz change: reset accumulator and re-equilibrate so the
+    // chassis doesn't shift height when switching Hz.
     if (state.physicsHz !== prevHzRef.current) {
       prevHzRef.current = state.physicsHz
       accumRef.current = 0
+      // Re-run equilibrium from the current position so that the integrator
+      // at the new dt starts from a consistent rest state.
+      const eqState = findStaticEquilibrium(
+        veh.vehicle,
+        veh.frontGeometry,
+        veh.rearGeometry,
+        veh.frontShock,
+        veh.rearShock,
+        veh.frontSwayBar,
+        veh.rearSwayBar,
+        veh.frontSteeringRack,
+        veh.rearSteeringRack,
+        veh.hydraulic,
+        5000,
+        stepRK4Simulation,
+      )
+      useSimulationStore.setState({ ...eqState, time: state.time })
     }
 
     // Handle engine switch: rebuild Rapier world or clean up

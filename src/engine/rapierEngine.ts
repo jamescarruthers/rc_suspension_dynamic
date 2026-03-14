@@ -534,6 +534,8 @@ export function findRapierStaticEquilibrium(
   buildRapierWorld(vehicle, frontGeo, rearGeo);
 
   const dt = 0.001;
+  const baseDampDt = 0.001;
+  const dampFactor = Math.pow(0.99, dt / baseDampDt);
   const velocityThreshold = 0.01;
 
   let simState: SimulationState = {
@@ -591,14 +593,14 @@ export function findRapierStaticEquilibrium(
     if (worldState) {
       const { chassisBody, wheelBodies } = worldState;
       const cv = chassisBody.linvel();
-      chassisBody.setLinvel(new RAPIER.Vector3(cv.x * 0.99, cv.y * 0.99, cv.z * 0.99), true);
+      chassisBody.setLinvel(new RAPIER.Vector3(cv.x * dampFactor, cv.y * dampFactor, cv.z * dampFactor), true);
       const av = chassisBody.angvel();
-      chassisBody.setAngvel(new RAPIER.Vector3(av.x * 0.99, av.y * 0.99, av.z * 0.99), true);
+      chassisBody.setAngvel(new RAPIER.Vector3(av.x * dampFactor, av.y * dampFactor, av.z * dampFactor), true);
 
       for (const c of CORNERS) {
         const wv = wheelBodies[c].handle.linvel();
         wheelBodies[c].handle.setLinvel(
-          new RAPIER.Vector3(wv.x * 0.99, wv.y * 0.99, wv.z * 0.99), true,
+          new RAPIER.Vector3(wv.x * dampFactor, wv.y * dampFactor, wv.z * dampFactor), true,
         );
       }
     }
