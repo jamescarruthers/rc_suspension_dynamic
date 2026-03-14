@@ -31,7 +31,7 @@ import { CORNERS } from '../types/suspension';
 import { computeTyreForce } from './tyreContact';
 import { computeCornerForces, computeSwayBarForce } from './forces';
 import { computeHydraulicForces } from './hydraulics';
-import { updateKinematics, computeRackSteering, computeGeometricMotionRatio } from './kinematics';
+import { updateKinematics, computeRackSteering, computeGeometricMotionRatio, computeSteeringCamberGain, computeAckermannPercent } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 // ── Conversion helpers ──────────────────────────────────────────────
@@ -472,6 +472,16 @@ export function stepRapierSimulation(
     newCorners[c].upperBJPosition = { lateral: kin.ballJoints.upperBJ.y, vertical: kin.ballJoints.upperBJ.z, longitudinal: kin.ballJoints.upperBJ.x };
     const ack = isFront(c) ? frontAck : rearAck;
     newCorners[c].steeringAngle = isLeft(c) ? ack.leftAngle : ack.rightAngle;
+    // Caster/KPI-induced camber gain during steering
+    newCorners[c].camberAngle += computeSteeringCamberGain(
+      newCorners[c].steeringAngle, kin.dynamicCaster, kin.dynamicKPI,
+    );
+    // Ackermann percentage diagnostic
+    const innerAngle = Math.abs(ack.leftAngle) > Math.abs(ack.rightAngle) ? ack.leftAngle : ack.rightAngle;
+    const outerAngle = Math.abs(ack.leftAngle) > Math.abs(ack.rightAngle) ? ack.rightAngle : ack.leftAngle;
+    newCorners[c].ackermannPercent = computeAckermannPercent(
+      innerAngle, outerAngle, geo.trackWidth, vehicle.wheelbase,
+    );
     if (isFront(c)) frontRCH += kin.rollCentreHeight * 0.5;
     else rearRCH += kin.rollCentreHeight * 0.5;
   }
@@ -682,6 +692,7 @@ function defaultCornerState(): PerCornerState {
     hydraulicPressure: 0,
     camberAngle: 0,
     steeringAngle: 0,
+    ackermannPercent: 0,
     wheelAirborne: false,
     dynamicKPI: 0,
     dynamicCaster: 0,

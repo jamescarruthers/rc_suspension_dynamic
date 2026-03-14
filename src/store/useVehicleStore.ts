@@ -26,7 +26,7 @@ const defaultVehicle: VehicleParams = {
 };
 
 const defaultFrontGeometry: AxleGeometry = {
-  trackWidth: 254,
+  trackWidth: 304,
   lowerWishboneRatio: 0.54,
   upperArmLengthRatio: 0.55,
   lowerArmAngle: 0,
@@ -37,7 +37,7 @@ const defaultFrontGeometry: AxleGeometry = {
   wishboneOuterWidthRatio: 0.35,
   hubOffset: 10,
   kpiAngle: 5,
-  casterAngle: 15,
+  casterAngle: 24,
   staticCamber: -1,
   staticToe: 0,
 
@@ -46,7 +46,7 @@ const defaultFrontGeometry: AxleGeometry = {
 };
 
 const defaultRearGeometry: AxleGeometry = {
-  trackWidth: 254,
+  trackWidth: 304,
   lowerWishboneRatio: 0.57,
   upperArmLengthRatio: 0.50,
   lowerArmAngle: 2,
@@ -100,17 +100,19 @@ const defaultRearSwayBar: AxleSwayBar = {
 };
 
 const defaultFrontSteeringRack: SteeringRack = {
-  rackWidth: 165,             // mm, lateral spacing between tie rod inner ends (~65% of trackWidth)
-  rackHeight: 18,             // mm, height of rack above ground
-  rackForwardOffset: 15,      // mm, forward of axle line
-
+  rackWidth: 210,
+  rackHeight: 18,
+  rackForwardOffset: 15,
+  steeringArmLength: 22,
+  maxSteeringAngle: 40,
 };
 
 const defaultRearSteeringRack: SteeringRack = {
-  rackWidth: 165,
+  rackWidth: 210,
   rackHeight: 18,
   rackForwardOffset: -10,
-
+  steeringArmLength: 22,
+  maxSteeringAngle: 10,
 };
 
 const defaultHydraulic: HydraulicConfig = {
@@ -283,12 +285,12 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
             unsprungMassPerCorner: 40,
             tyreSpringRate: 60,
             tyreDamping: 0.03,
-            tyreRadius: 35,
-            tyreWidth: 35,
+            tyreRadius: 27,
+            tyreWidth: 30,
           },
           frontGeometry: {
             ...defaultFrontGeometry,
-            trackWidth: 249,
+            trackWidth: 238,
             lowerWishboneRatio: 0.42,
             upperArmLengthRatio: 0.50,
             uprightHeight: 22.3,
@@ -303,7 +305,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           },
           rearGeometry: {
             ...defaultRearGeometry,
-            trackWidth: 249,
+            trackWidth: 242,
             lowerWishboneRatio: 0.44,
             upperArmLengthRatio: 0.45,
             lowerArmAngle: 1.5,
@@ -339,8 +341,8 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           },
           frontSwayBar: { ...defaultFrontSwayBar, wireDiameter: 1.6, armLength: 22 },
           rearSwayBar: { ...defaultRearSwayBar, enabled: true, wireDiameter: 1.8, armLength: 25 },
-          frontSteeringRack: { ...defaultFrontSteeringRack, rackWidth: 162, rackHeight: 15, rackForwardOffset: 12 },
-          rearSteeringRack: { ...defaultRearSteeringRack, rackWidth: 162, rackHeight: 15, rackForwardOffset: -8 },
+          frontSteeringRack: { ...defaultFrontSteeringRack, rackWidth: 162, rackHeight: 15, rackForwardOffset: 12, steeringArmLength: 16, maxSteeringAngle: 40 },
+          rearSteeringRack: { ...defaultRearSteeringRack, rackWidth: 162, rackHeight: 15, rackForwardOffset: -8, steeringArmLength: 16, maxSteeringAngle: 10 },
           hydraulic: { ...defaultHydraulic },
         });
         break;
