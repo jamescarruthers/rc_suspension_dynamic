@@ -129,7 +129,7 @@ export interface PerCornerState {
 
 // ─── Full simulation state ──────────────────────────────────────────
 
-export type PhysicsEngineType = 'custom' | 'rapier' | 'rk4';
+export type PhysicsEngineType = 'custom' | 'rapier' | 'rk4' | 'rk4-wasm';
 
 export interface SimulationState {
   mode: 'kinematic' | 'dynamic';

@@ -12,6 +12,7 @@ function PerfStatsOverlay() {
   const stats = useContext(PerfStatsContext)
 
   const engineLabel = stats.physicsEngine === 'rk4' ? 'RK4' :
+    stats.physicsEngine === 'rk4-wasm' ? 'RK4 WASM' :
     stats.physicsEngine === 'rapier' ? 'Rapier' : 'Euler'
 
   return (
