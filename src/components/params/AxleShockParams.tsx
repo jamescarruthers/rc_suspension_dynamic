@@ -23,8 +23,7 @@ export function AxleShockParams({ axle }: AxleShockParamsProps) {
     <CollapsibleSection title={title} defaultOpen={false} color="#FF6B35">
       <div className="space-y-0.5">
         <ParamSlider label="Shock Length" value={shock.shockLength} min={50} max={140} unit="mm" onChange={(v) => update('shockLength', v)} />
-        <ParamSlider label="Mount Position" value={shock.mountPosition} min={10} max={shock.shockLength} unit="mm" onChange={(v) => update('mountPosition', v)} />
-        <ParamSlider label="Tower Height" value={shock.towerHeight} min={40} max={120} unit="mm" onChange={(v) => update('towerHeight', v)} />
+        <ParamSlider label="Damper Attach Ratio" value={shock.damperAttachmentRatio} min={0.3} max={0.95} step={0.01} onChange={(v) => update('damperAttachmentRatio', v)} />
         <ParamSlider label="Shock Angle" value={shock.shockAngle} min={0} max={45} step={0.5} unit="°" onChange={(v) => update('shockAngle', v)} />
         <ParamSlider label="Spring Rate" value={shock.springRate} min={1} max={30} step={0.5} unit="N/mm" onChange={(v) => update('springRate', v)} />
         <ParamSlider label="Comp Damping" value={shock.dampingCompression} min={0.01} max={1} step={0.01} unit="Ns/mm" onChange={(v) => update('dampingCompression', v)} />

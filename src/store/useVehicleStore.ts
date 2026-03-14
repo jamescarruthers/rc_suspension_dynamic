@@ -29,7 +29,7 @@ const defaultFrontGeometry: AxleGeometry = {
   lowerWishboneLength: 55,
   upperArmLengthRatio: 0.85,
   lowerArmAngle: 5,
-  upperArmAngle: -8,
+  uprightHeight: 16.7,
   innerPivotHeightLower: 10,
   innerPivotHeightUpper: 38,
   innerPivotSpread: 50,
@@ -46,7 +46,7 @@ const defaultRearGeometry: AxleGeometry = {
   lowerWishboneLength: 55,
   upperArmLengthRatio: 0.85,
   lowerArmAngle: 5,
-  upperArmAngle: -8,
+  uprightHeight: 16.7,
   innerPivotHeightLower: 10,
   innerPivotHeightUpper: 38,
   innerPivotSpread: 50,
@@ -60,8 +60,7 @@ const defaultRearGeometry: AxleGeometry = {
 
 const defaultFrontShock: AxleShock = {
   shockLength: 105,
-  mountPosition: 40,
-  towerHeight: 75,
+  damperAttachmentRatio: 0.73,
   shockAngle: 15,
   springRate: 5.5,
   dampingCompression: 0.08,
@@ -72,8 +71,7 @@ const defaultFrontShock: AxleShock = {
 
 const defaultRearShock: AxleShock = {
   shockLength: 115,
-  mountPosition: 42,
-  towerHeight: 80,
+  damperAttachmentRatio: 0.76,
   shockAngle: 12,
   springRate: 6.0,
   dampingCompression: 0.10,
@@ -262,8 +260,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           frontShock: {
             ...defaultFrontShock,
             shockLength: 85,
-            mountPosition: 32,
-            towerHeight: 60,
+            damperAttachmentRatio: 0.71,
             springRate: 4.0,
             dampingCompression: 0.06,
             dampingRebound: 0.09,
@@ -273,8 +270,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           rearShock: {
             ...defaultRearShock,
             shockLength: 90,
-            mountPosition: 34,
-            towerHeight: 65,
+            damperAttachmentRatio: 0.76,
             springRate: 4.5,
             dampingCompression: 0.07,
             dampingRebound: 0.10,

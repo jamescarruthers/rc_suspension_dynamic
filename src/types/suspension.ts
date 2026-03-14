@@ -32,12 +32,12 @@ export interface VehicleParams {
 export interface AxleGeometry {
   trackWidth: number;             // mm
   lowerWishboneLength: number;    // mm
-  upperArmLengthRatio: number;    // ratio
-  lowerArmAngle: number;          // degrees
-  upperArmAngle: number;          // degrees
-  innerPivotHeightLower: number;  // mm
-  innerPivotHeightUpper: number;  // mm
-  innerPivotSpread: number;       // mm
+  upperArmLengthRatio: number;    // ratio (upper arm length / lower arm length)
+  lowerArmAngle: number;          // degrees from horizontal
+  uprightHeight: number;          // mm, vertical distance between lower and upper ball joints
+  innerPivotHeightLower: number;  // mm above chassis reference
+  innerPivotHeightUpper: number;  // mm above chassis reference
+  innerPivotSpread: number;       // mm (fore-aft spacing of lower A-arm pivots)
   kpiAngle: number;               // degrees (KPI)
   casterAngle: number;            // degrees
   staticCamber: number;           // degrees
@@ -49,9 +49,8 @@ export interface AxleGeometry {
 // ─── Shock absorber ─────────────────────────────────────────────────
 
 export interface AxleShock {
-  shockLength: number;            // mm
-  mountPosition: number;          // mm from inner pivot
-  towerHeight: number;            // mm
+  shockLength: number;            // mm (body length at ride height)
+  damperAttachmentRatio: number;  // 0-1, fraction along lower arm from inner pivot
   shockAngle: number;             // degrees from vertical
   springRate: number;             // N/mm
   dampingCompression: number;     // Ns/mm

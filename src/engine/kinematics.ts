@@ -22,6 +22,26 @@ export interface KinematicsResult {
   camber: number;           // degrees
 }
 
+// ─── Derived geometry ───────────────────────────────────────────────
+
+/**
+ * Derive the upper arm angle from the upright height and other geometry.
+ *
+ * The upright height defines the vertical distance between the lower and
+ * upper outer ball joints. Given the lower arm geometry and inner pivot
+ * heights, the upper arm angle is the one that places the upper ball joint
+ * at exactly uprightHeight above the lower ball joint.
+ */
+export function deriveUpperArmAngle(geo: AxleGeometry): number {
+  const lowerAngle = degToRad(geo.lowerArmAngle);
+  const lowerOuterZ = geo.innerPivotHeightLower + geo.lowerWishboneLength * Math.sin(lowerAngle);
+  const upperOuterZ = lowerOuterZ + geo.uprightHeight;
+  const upperArmLength = geo.lowerWishboneLength * geo.upperArmLengthRatio;
+  if (upperArmLength <= 0) return 0;
+  const sinAngle = (upperOuterZ - geo.innerPivotHeightUpper) / upperArmLength;
+  return radToDeg(Math.asin(Math.max(-1, Math.min(1, sinAngle))));
+}
+
 // ─── Pivot position helpers ─────────────────────────────────────────
 
 /**
@@ -42,7 +62,7 @@ function computePivotPositions(
   const lowerLen = geo.lowerWishboneLength;
   const upperLen = lowerLen * geo.upperArmLengthRatio;
   const lowerAngle = degToRad(geo.lowerArmAngle);
-  const upperAngle = degToRad(geo.upperArmAngle);
+  const upperAngle = degToRad(deriveUpperArmAngle(geo));
 
   // Inner pivot positions (on the chassis)
   // Lateral: inboard from wheel centreline by the arm's horizontal projection

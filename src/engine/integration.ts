@@ -166,8 +166,7 @@ export function stepSimulation(
   // Suspension forces
   for (const c of CORNERS) {
     const shock = isFront(c) ? frontShock : rearShock;
-    const geo = isFront(c) ? frontGeo : rearGeo;
-    const motionRatio = computeMotionRatio(shock, geo.lowerWishboneLength);
+    const motionRatio = computeMotionRatio(shock);
     const cs = newCorners[c];
 
     const forces = computeCornerForces(cs.shockCompression, cs.shockVelocity, shock, motionRatio);
