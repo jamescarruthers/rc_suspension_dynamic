@@ -41,6 +41,7 @@ export interface AxleGeometry {
   casterAngle: number;            // degrees
   staticCamber: number;           // degrees
   staticToe: number;              // degrees
+  ackermannArmLength: number;     // mm, steering arm from kingpin to tie rod attachment
   antiDive: number;               // degrees (front only)
   antiSquat: number;              // degrees (rear only)
 }
@@ -100,6 +101,7 @@ export interface PerCornerState {
   hydraulicForce: number;
   hydraulicPressure: number;
   camberAngle: number;
+  steeringAngle: number;          // degrees, per-wheel after Ackermann
   wheelAirborne: boolean;
 }
 
@@ -128,6 +130,8 @@ export interface SimulationState {
   // Input state
   rollInput: number;              // degrees
   pitchInput: number;             // degrees
+  frontSteeringAngle: number;     // degrees, commanded front axle steering
+  rearSteeringAngle: number;      // degrees, commanded rear axle steering
   // Drop test
   dropHeight: number;             // mm
   dropRollAngle: number;          // degrees

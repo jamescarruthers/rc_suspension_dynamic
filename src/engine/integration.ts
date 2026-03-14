@@ -14,7 +14,7 @@ import { computeTyreForce } from './tyreContact';
 import { computeCornerForces, computeSwayBarForce, computeMotionRatio } from './forces';
 import { computeAccelerations, computeLeverArms, type CornerForceInputs } from './dynamics';
 import { computeHydraulicForces } from './hydraulics';
-import { updateKinematics } from './kinematics';
+import { updateKinematics, computeAckermannSteering } from './kinematics';
 import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 function getTyreRadius(vehicle: VehicleParams): number {
@@ -71,6 +71,7 @@ function defaultCornerState(): PerCornerState {
     hydraulicForce: 0,
     hydraulicPressure: 0,
     camberAngle: 0,
+    steeringAngle: 0,
     wheelAirborne: false,
   };
 }
@@ -244,10 +245,22 @@ export function stepSimulation(
   // Kinematics update
   let frontRCH = 0;
   let rearRCH = 0;
+
+  // Ackermann steering
+  const frontAck = computeAckermannSteering(
+    state.frontSteeringAngle, frontGeo.trackWidth, vehicle.wheelbase, frontGeo.ackermannArmLength,
+  );
+  const rearAck = computeAckermannSteering(
+    state.rearSteeringAngle, rearGeo.trackWidth, vehicle.wheelbase, rearGeo.ackermannArmLength,
+  );
+
   for (const c of CORNERS) {
     const geo = isFront(c) ? frontGeo : rearGeo;
     const kin = updateKinematics(geo, vehicle.rideHeight, vehicle.tyreRadius, newCorners[c].shockCompression, isLeft(c));
     newCorners[c].camberAngle = kin.camber;
+    // Per-wheel steering after Ackermann
+    const ack = isFront(c) ? frontAck : rearAck;
+    newCorners[c].steeringAngle = isLeft(c) ? ack.leftAngle : ack.rightAngle;
     if (isFront(c)) frontRCH += kin.rollCentreHeight * 0.5;
     else rearRCH += kin.rollCentreHeight * 0.5;
   }
@@ -302,6 +315,8 @@ export function findStaticEquilibrium(
     rearRollCentreHeight: 0,
     rollInput: 0,
     pitchInput: 0,
+    frontSteeringAngle: 0,
+    rearSteeringAngle: 0,
     dropHeight: 50,
     dropRollAngle: 0,
     dropPitchAngle: 0,
