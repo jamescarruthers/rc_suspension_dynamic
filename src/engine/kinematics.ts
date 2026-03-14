@@ -337,8 +337,10 @@ export function updateKinematics(
 ): KinematicsResult {
   const ic = computeInstantCentre(geo, rideHeight, tyreRadius, isLeftSide);
 
+  // Contact patch includes hub offset (axle stub extends outward from kingpin)
   const halfTrack = geo.trackWidth / 2;
-  const contactPatchY = isLeftSide ? -halfTrack : halfTrack;
+  const hubOffset = geo.hubOffset ?? 0;
+  const contactPatchY = isLeftSide ? -(halfTrack + hubOffset) : (halfTrack + hubOffset);
   const rollCentreHeight = computeRollCentreHeight(ic, contactPatchY, 0);
 
   const camber = computeGeometricCamber(geo, rideHeight, tyreRadius, shockCompression);

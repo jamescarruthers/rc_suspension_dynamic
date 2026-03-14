@@ -37,6 +37,7 @@ export interface AxleGeometry {
   upperArmAngle: number;          // degrees from horizontal (at rest)
   uprightHeight: number;          // mm, distance between lower and upper ball joints (centred on wheel)
   innerPivotSpread: number;       // mm (fore-aft spacing of lower A-arm pivots)
+  hubOffset: number;               // mm, axle stub from kingpin centre to wheel hub
   kpiAngle: number;               // degrees (KPI)
   casterAngle: number;            // degrees
   staticCamber: number;           // degrees

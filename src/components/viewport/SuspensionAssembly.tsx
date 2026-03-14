@@ -330,7 +330,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       <Line
         points={[
           [kingpinMidX, kingpinMidY, longitudinalOffset],
-          [kingpinMidX + sideSign * 10, kingpinMidY, longitudinalOffset],
+          [kingpinMidX + sideSign * geo.hubOffset, kingpinMidY, longitudinalOffset],
         ]}
         color={WHITE}
         lineWidth={1.5}
