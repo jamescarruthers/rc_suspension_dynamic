@@ -72,6 +72,8 @@ export function LeftSidebar({ mobile = false }: { mobile?: boolean }) {
         <AxleSwayBarParams axle="front" />
         <CopyAxleButton type="swayBar" />
         <AxleSwayBarParams axle="rear" />
+        <SteeringRackParams axle="front" />
+        <SteeringRackParams axle="rear" />
         <HydraulicParams />
       </div>
     </div>
