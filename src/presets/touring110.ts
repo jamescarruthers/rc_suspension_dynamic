@@ -22,7 +22,7 @@ export const vehicle: VehicleParams = {
 
 export const frontGeometry: AxleGeometry = {
   trackWidth: 190,
-  lowerWishboneLength: 45,
+  lowerWishboneRatio: 0.47,
   upperArmLengthRatio: 0.45,
   lowerArmAngle: 0,
   uprightHeight: 14.2,
@@ -39,7 +39,7 @@ export const frontGeometry: AxleGeometry = {
 
 export const rearGeometry: AxleGeometry = {
   trackWidth: 190,
-  lowerWishboneLength: 46,
+  lowerWishboneRatio: 0.48,
   upperArmLengthRatio: 0.42,
   lowerArmAngle: 0.5,
   uprightHeight: 12.6,

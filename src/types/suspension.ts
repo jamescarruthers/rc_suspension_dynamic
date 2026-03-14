@@ -31,7 +31,7 @@ export interface VehicleParams {
 
 export interface AxleGeometry {
   trackWidth: number;             // mm
-  lowerWishboneLength: number;    // mm
+  lowerWishboneRatio: number;     // ratio of half-track width (0-1)
   upperArmLengthRatio: number;    // ratio (upper arm length / lower arm length)
   lowerArmAngle: number;          // degrees from horizontal
   uprightHeight: number;          // mm, vertical distance between lower and upper ball joints

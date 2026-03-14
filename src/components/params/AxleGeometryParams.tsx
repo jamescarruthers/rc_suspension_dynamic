@@ -23,7 +23,7 @@ export function AxleGeometryParams({ axle }: AxleGeometryParamsProps) {
     <CollapsibleSection title={title} defaultOpen={isFront}>
       <div className="space-y-0.5">
         <ParamSlider label="Track Width" value={geometry.trackWidth} min={150} max={350} unit="mm" onChange={(v) => update('trackWidth', v)} />
-        <ParamSlider label="Lower WB Length" value={geometry.lowerWishboneLength} min={30} max={120} unit="mm" onChange={(v) => update('lowerWishboneLength', v)} />
+        <ParamSlider label="Lower WB Ratio" value={geometry.lowerWishboneRatio} min={0.2} max={0.8} step={0.01} onChange={(v) => update('lowerWishboneRatio', v)} />
         <ParamSlider label="Upper Arm Ratio" value={geometry.upperArmLengthRatio} min={0.2} max={1.0} step={0.05} onChange={(v) => update('upperArmLengthRatio', v)} />
         <ParamSlider label="Lower Arm Angle" value={geometry.lowerArmAngle} min={-15} max={15} step={0.5} unit="°" onChange={(v) => update('lowerArmAngle', v)} />
         <ParamSlider label="Upright Height" value={geometry.uprightHeight} min={5} max={40} step={0.5} unit="mm" onChange={(v) => update('uprightHeight', v)} />
