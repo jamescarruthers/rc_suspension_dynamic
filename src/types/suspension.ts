@@ -44,7 +44,6 @@ export interface AxleGeometry {
   casterAngle: number;            // degrees
   staticCamber: number;           // degrees
   staticToe: number;              // degrees
-  ackermannArmLength: number;     // mm, steering arm from kingpin to tie rod attachment
   antiDive: number;               // degrees (front only)
   antiSquat: number;              // degrees (rear only)
 }

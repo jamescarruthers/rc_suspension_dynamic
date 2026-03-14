@@ -595,6 +595,64 @@ export function computeGeometricMotionRatio(
 // ─── Rack-based steering (§3.11) ─────────────────────────────────────
 
 /**
+ * Compute the Ackermann steering arm length from the rack geometry.
+ *
+ * At rest (no steer), the tie rod connects the rack inner end (at rackWidth/2
+ * from centreline) to the arm tip on the upright. The arm points inward
+ * toward the rear axle centre. Solving the tie rod length constraint at
+ * rest gives us the arm length as a quadratic:
+ *
+ *   L² − 2L(a·c − b·s) + (a² + b² − H²) = 0
+ *
+ * where a = kingpinHalfTrack − rackWidth/2, b = rackForwardOffset,
+ * c = cos(armAngleRest), s = sin(armAngleRest), H² = horizontal tie rod
+ * length squared.
+ */
+export function computeAckermannArmLength(
+  geo: AxleGeometry,
+  rack: SteeringRack,
+  wheelbase: number,
+): number {
+  const hubOffset = geo.hubOffset ?? 0;
+  const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
+  const armAngleRest = Math.atan2(kingpinHalfTrack, wheelbase);
+  const c = Math.cos(armAngleRest);
+  const s = Math.sin(armAngleRest);
+
+  // Height difference for horizontal projection of tie rod
+  const kpiRad = degToRad(geo.kpiAngle);
+  const halfUpright = geo.uprightHeight / 2;
+  const tyreRadiusApprox = 35;
+  const lowerBJHeight = tyreRadiusApprox - halfUpright * Math.cos(kpiRad);
+  const heightDiff = rack.rackHeight - lowerBJHeight;
+  const horizLenSq = Math.max(
+    rack.tieRodLength * rack.tieRodLength - heightDiff * heightDiff,
+    1,
+  );
+
+  // Quadratic coefficients: L² - 2L·p + q = 0
+  const a = kingpinHalfTrack - rack.rackWidth / 2;
+  const b = rack.rackForwardOffset;
+  const p = a * c - b * s;
+  const q = a * a + b * b - horizLenSq;
+
+  const discriminant = p * p - q;
+  if (discriminant < 0) {
+    // Tie rod can't reach — return a fallback
+    return Math.max(p, 5);
+  }
+
+  // Take the smaller positive root (shorter arm)
+  const sqrtD = Math.sqrt(discriminant);
+  const L1 = p - sqrtD;
+  const L2 = p + sqrtD;
+
+  if (L1 > 1) return L1;
+  if (L2 > 1) return L2;
+  return 5; // absolute fallback
+}
+
+/**
  * Compute per-wheel steering angles using a steering rack with tie rods.
  *
  * The rack translates laterally; tie rods connect the rack ends to the
@@ -602,10 +660,13 @@ export function computeGeometricMotionRatio(
  * determines the actual steer angle at each wheel, producing natural
  * Ackermann geometry from the mechanism.
  *
+ * The steering arm length is calculated from the rack geometry rather than
+ * being set independently — only the rack width needs to be specified.
+ *
  * Algorithm:
- * 1. Convert commanded angle to rack lateral displacement
- * 2. Compute tie rod inner end positions (on rack, displaced)
- * 3. Compute steering arm rest geometry (at lower ball joint height)
+ * 1. Compute arm length from rack geometry (tie rod constraint at rest)
+ * 2. Convert commanded angle to rack lateral displacement
+ * 3. Compute tie rod inner end positions (on rack, displaced)
  * 4. Solve tie rod length constraint for each wheel's steer angle
  *
  * Coordinate frame: X = lateral, Y = up, Z = forward (Three.js convention)
@@ -616,7 +677,9 @@ export function computeRackSteering(
   rack: SteeringRack,
   wheelbase: number,
 ): { leftAngle: number; rightAngle: number; rackDisplacement: number } {
-  if (Math.abs(commandedAngle) < 1e-6 || geo.ackermannArmLength <= 0) {
+  const ackermannArmLength = computeAckermannArmLength(geo, rack, wheelbase);
+
+  if (Math.abs(commandedAngle) < 1e-6 || ackermannArmLength <= 0) {
     return { leftAngle: commandedAngle, rightAngle: commandedAngle, rackDisplacement: 0 };
   }
 
@@ -631,7 +694,7 @@ export function computeRackSteering(
   // The rack displacement is the lateral shift that produces the commanded
   // average steer angle via the steering arm geometry.
   const cmdRad = degToRad(commandedAngle);
-  const rackDisplacement = geo.ackermannArmLength * Math.sin(cmdRad);
+  const rackDisplacement = ackermannArmLength * Math.sin(cmdRad);
 
   // Rack inner end positions (Y=lateral, Z=forward from axle)
   // At rest (centred), the tie rod inner ends are at ±rackWidth/2 laterally,
@@ -700,7 +763,7 @@ export function computeRackSteering(
     //
     // This is nonlinear in α. Use Newton's method starting from φ=0.
 
-    const L = geo.ackermannArmLength;
+    const L = ackermannArmLength;
     let phi = 0;
     for (let iter = 0; iter < 20; iter++) {
       const alpha = armAngleRest + phi;

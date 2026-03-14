@@ -36,7 +36,7 @@ export const frontGeometry: AxleGeometry = {
   casterAngle: 15,
   staticCamber: -1,
   staticToe: 0,
-  ackermannArmLength: 15,
+
   antiDive: 5,
   antiSquat: 0,
 };
@@ -56,7 +56,7 @@ export const rearGeometry: AxleGeometry = {
   casterAngle: 0,
   staticCamber: -2,
   staticToe: 2,
-  ackermannArmLength: 15,
+
   antiDive: 0,
   antiSquat: 2,
 };

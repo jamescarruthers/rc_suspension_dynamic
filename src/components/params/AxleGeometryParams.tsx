@@ -40,7 +40,6 @@ export function AxleGeometryParams({ axle }: AxleGeometryParamsProps) {
         )}
         <ParamSlider label="Static Camber" value={geometry.staticCamber} min={-5} max={2} step={0.25} unit="°" onChange={(v) => update('staticCamber', v)} />
         <ParamSlider label="Static Toe" value={geometry.staticToe} min={-3} max={isFront ? 3 : 5} step={0.25} unit="°" onChange={(v) => update('staticToe', v)} />
-        <ParamSlider label="Ackermann Arm" value={geometry.ackermannArmLength} min={5} max={40} step={0.5} unit="mm" onChange={(v) => update('ackermannArmLength', v)} />
         {isFront && (
           <ParamSlider label="Anti-Dive" value={geometry.antiDive} min={0} max={15} step={0.5} unit="°" onChange={(v) => update('antiDive', v)} />
         )}
