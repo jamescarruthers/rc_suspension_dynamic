@@ -4,6 +4,7 @@ import { useContext, useCallback } from 'react'
 import { GroundPlane } from './GroundPlane'
 import { SuspensionAssembly } from './SuspensionAssembly'
 import { ForceArrows } from './ForceArrows'
+import { GroundContactMarkers } from './GroundContactMarkers'
 import { PerfStatsContext } from '../../App'
 import { useSimulationStore } from '../../store/useSimulationStore'
 import { useVehicleStore } from '../../store/useVehicleStore'
@@ -43,6 +44,7 @@ export function Viewport() {
         <GroundPlane />
         <SuspensionAssembly />
         <ForceArrows />
+        <GroundContactMarkers />
         <OrbitControls
           enableDamping
           dampingFactor={0.1}
