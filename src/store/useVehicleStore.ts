@@ -26,7 +26,7 @@ const defaultVehicle: VehicleParams = {
 
 const defaultFrontGeometry: AxleGeometry = {
   trackWidth: 310,
-  lowerWishboneLength: 55,
+  lowerWishboneRatio: 0.35,
   upperArmLengthRatio: 0.85,
   lowerArmAngle: 5,
   uprightHeight: 16.7,
@@ -43,7 +43,7 @@ const defaultFrontGeometry: AxleGeometry = {
 
 const defaultRearGeometry: AxleGeometry = {
   trackWidth: 310,
-  lowerWishboneLength: 55,
+  lowerWishboneRatio: 0.35,
   upperArmLengthRatio: 0.85,
   lowerArmAngle: 5,
   uprightHeight: 16.7,
@@ -250,12 +250,12 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
           frontGeometry: {
             ...defaultFrontGeometry,
             trackWidth: 250,
-            lowerWishboneLength: 45,
+            lowerWishboneRatio: 0.36,
           },
           rearGeometry: {
             ...defaultRearGeometry,
             trackWidth: 250,
-            lowerWishboneLength: 45,
+            lowerWishboneRatio: 0.36,
           },
           frontShock: {
             ...defaultFrontShock,

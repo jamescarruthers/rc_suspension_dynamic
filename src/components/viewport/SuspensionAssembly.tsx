@@ -165,14 +165,15 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
 
   const tyreRadius = vehicle.tyreRadius
 
-  // ── Derived angles ──
+  // ── Derived lengths & angles ──
+  const lowerWishboneLength = geo.lowerWishboneRatio * geo.trackWidth / 2
   const upperArmAngleDeg = deriveUpperArmAngle(geo)
-  const upperArmLength = geo.lowerWishboneLength * geo.upperArmLengthRatio
+  const upperArmLength = lowerWishboneLength * geo.upperArmLengthRatio
 
   // ── Chassis-attached points (defined in unrotated chassis space, then rotated) ──
 
   // Inner pivot positions on the chassis
-  const innerPivotXLocal = sideSign * (geo.trackWidth / 2 - geo.lowerWishboneLength)
+  const innerPivotXLocal = sideSign * (geo.trackWidth / 2 - lowerWishboneLength)
   const innerLowerYLocal = chassisHeave + geo.innerPivotHeightLower
   const innerUpperYLocal = chassisHeave + geo.innerPivotHeightUpper
 
@@ -187,9 +188,9 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const lowerArmAngleRad = (geo.lowerArmAngle * Math.PI) / 180
   const shockAngleRad = (shock.shockAngle * Math.PI) / 180
   const staticLowerMountXLocal = innerPivotXLocal +
-    sideSign * geo.lowerWishboneLength * Math.cos(lowerArmAngleRad) * shock.damperAttachmentRatio
+    sideSign * lowerWishboneLength * Math.cos(lowerArmAngleRad) * shock.damperAttachmentRatio
   const staticLowerMountYLocal = geo.innerPivotHeightLower +
-    geo.lowerWishboneLength * Math.sin(lowerArmAngleRad) * shock.damperAttachmentRatio
+    lowerWishboneLength * Math.sin(lowerArmAngleRad) * shock.damperAttachmentRatio
   const shockTowerXLocal = staticLowerMountXLocal - sideSign * shock.shockLength * Math.sin(shockAngleRad)
   const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
@@ -197,7 +198,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // ── Outer ball joints — maintain constant arm lengths (rigid links) ──
   // Compute static ball joint heights at design ride height from arm geometry
   const upperArmAngleRad = (upperArmAngleDeg * Math.PI) / 180
-  const staticLowerOuterY = geo.innerPivotHeightLower + geo.lowerWishboneLength * Math.sin(lowerArmAngleRad)
+  const staticLowerOuterY = geo.innerPivotHeightLower + lowerWishboneLength * Math.sin(lowerArmAngleRad)
   const staticUpperOuterY = geo.innerPivotHeightUpper + upperArmLength * Math.sin(upperArmAngleRad)
 
   // Fixed vertical offsets of ball joints relative to wheel centre
@@ -218,8 +219,8 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const innerMidLowerX = (innerPivotLowerFore[0] + innerPivotLowerAft[0]) / 2
   const innerMidLowerY = (innerPivotLowerFore[1] + innerPivotLowerAft[1]) / 2
   const lowerDY = outerLowerY - innerMidLowerY
-  const lowerDXSq = geo.lowerWishboneLength * geo.lowerWishboneLength - lowerDY * lowerDY
-  const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : geo.lowerWishboneLength
+  const lowerDXSq = lowerWishboneLength * lowerWishboneLength - lowerDY * lowerDY
+  const lowerDX = lowerDXSq > 0 ? Math.sqrt(lowerDXSq) : lowerWishboneLength
   const outerLowerX = innerMidLowerX + sideSign * lowerDX
 
   // Upper arm — single inner pivot

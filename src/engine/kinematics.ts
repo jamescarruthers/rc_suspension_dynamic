@@ -33,10 +33,11 @@ export interface KinematicsResult {
  * at exactly uprightHeight above the lower ball joint.
  */
 export function deriveUpperArmAngle(geo: AxleGeometry): number {
+  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
   const lowerAngle = degToRad(geo.lowerArmAngle);
-  const lowerOuterZ = geo.innerPivotHeightLower + geo.lowerWishboneLength * Math.sin(lowerAngle);
+  const lowerOuterZ = geo.innerPivotHeightLower + lowerLen * Math.sin(lowerAngle);
   const upperOuterZ = lowerOuterZ + geo.uprightHeight;
-  const upperArmLength = geo.lowerWishboneLength * geo.upperArmLengthRatio;
+  const upperArmLength = lowerLen * geo.upperArmLengthRatio;
   if (upperArmLength <= 0) return 0;
   const sinAngle = (upperOuterZ - geo.innerPivotHeightUpper) / upperArmLength;
   return radToDeg(Math.asin(Math.max(-1, Math.min(1, sinAngle))));
@@ -59,7 +60,7 @@ function computePivotPositions(
 ) {
   const sign = isLeftSide ? -1 : 1;
 
-  const lowerLen = geo.lowerWishboneLength;
+  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
   const upperLen = lowerLen * geo.upperArmLengthRatio;
   const lowerAngle = degToRad(geo.lowerArmAngle);
   const upperAngle = degToRad(deriveUpperArmAngle(geo));
@@ -155,7 +156,7 @@ export function computeCamberFromTravel(
   geo: AxleGeometry,
   shockCompression: number,
 ): number {
-  const lowerLen = geo.lowerWishboneLength;
+  const lowerLen = geo.lowerWishboneRatio * geo.trackWidth / 2;
   const upperLen = lowerLen * geo.upperArmLengthRatio;
 
   if (lowerLen <= 0) return geo.staticCamber;
