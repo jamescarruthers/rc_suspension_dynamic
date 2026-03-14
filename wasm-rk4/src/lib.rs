@@ -435,6 +435,19 @@ fn corner_bump_position(time: f64, speed: f64, corner_long_offset: f64) -> f64 {
     speed * time - corner_long_offset
 }
 
+/// If frequency > 0, bumps repeat with spacing = speed / frequency.
+#[inline]
+fn repeating_bump_position(pos: f64, width: f64, speed: f64, frequency: f64) -> f64 {
+    if frequency <= 0.0 || speed <= 0.0 {
+        return pos;
+    }
+    let spacing = speed / frequency;
+    if spacing <= width || pos < 0.0 {
+        return pos;
+    }
+    pos % spacing
+}
+
 fn get_ground_heights(road: &[f64], time: f64, out: &mut [f64; 4]) {
     let road_type = road[R_TYPE] as i32;
     let height = road[R_HEIGHT];
@@ -455,15 +468,17 @@ fn get_ground_heights(road: &[f64], time: f64, out: &mut [f64; 4]) {
     match road_type {
         0 => {} // flat
         1 => {
-            // singleBump - only target corner
+            // singleBump - only target corner (repeating if frequency > 0)
             let t = target.min(3);
-            let pos = corner_bump_position(time, speed, cx[t]);
+            let raw_pos = corner_bump_position(time, speed, cx[t]);
+            let pos = repeating_bump_position(raw_pos, width, speed, frequency);
             out[t] = half_sine_bump(pos, width, height);
         }
         2 => {
-            // speedBump - all corners
+            // speedBump - all corners (repeating if frequency > 0)
             for i in 0..4 {
-                let pos = corner_bump_position(time, speed, cx[i]);
+                let raw_pos = corner_bump_position(time, speed, cx[i]);
+                let pos = repeating_bump_position(raw_pos, width, speed, frequency);
                 out[i] = half_sine_bump(pos, width, height);
             }
         }

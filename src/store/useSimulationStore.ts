@@ -63,8 +63,8 @@ function defaultForceVisibility(): Record<string, boolean> {
 function defaultSimulationState(): SimulationState {
   return {
     mode: 'dynamic',
-    physicsEngine: 'rk4',
-    running: false,
+    physicsEngine: 'rk4-wasm',
+    running: true,
     time: 0,
     playbackSpeed: 1,
     // Sprung mass state
@@ -89,7 +89,7 @@ function defaultSimulationState(): SimulationState {
     dropRollAngle: 0,
     dropPitchAngle: 0,
     // Road surface
-    roadSurfaceType: 'flat',
+    roadSurfaceType: 'speedBump',
     roadBumpHeight: 10,
     roadBumpWidth: 30,
     roadBumpShape: 'half-sine',
