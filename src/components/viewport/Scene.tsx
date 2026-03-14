@@ -6,7 +6,7 @@ import { ForceArrows } from './ForceArrows'
 
 export function Viewport() {
   return (
-    <div className="flex-1 relative">
+    <div className="flex-1 h-full relative">
       <Canvas
         camera={{ position: [300, 200, 300], fov: 50, near: 1, far: 5000 }}
         gl={{ antialias: true }}
