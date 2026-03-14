@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import type { Corner, PerCornerState, PhysicsEngineType, SimulationState } from '../types/suspension';
 
-// ── Default per-corner state (equilibrium) ───────────────────────────────────
+// ── Default per-corner state ─────────────────────────────────────────────────
+// Default wheelPosition to tyre radius (42mm for 1:8 buggy) so the car renders
+// correctly on the ground even before equilibrium is computed.
 
-function defaultCornerState(): PerCornerState {
+function defaultCornerState(wheelPosition: number = 42): PerCornerState {
   return {
-    wheelPosition: 0,
+    wheelPosition,
     wheelVelocity: 0,
     suspensionCompression: 0,
     shockCompression: 0,
@@ -23,12 +25,12 @@ function defaultCornerState(): PerCornerState {
   };
 }
 
-function defaultCorners(): Record<Corner, PerCornerState> {
+function defaultCorners(wheelPosition: number = 42): Record<Corner, PerCornerState> {
   return {
-    FL: defaultCornerState(),
-    FR: defaultCornerState(),
-    RL: defaultCornerState(),
-    RR: defaultCornerState(),
+    FL: defaultCornerState(wheelPosition),
+    FR: defaultCornerState(wheelPosition),
+    RL: defaultCornerState(wheelPosition),
+    RR: defaultCornerState(wheelPosition),
   };
 }
 
@@ -52,7 +54,7 @@ function defaultForceVisibility(): Record<string, boolean> {
 function defaultSimulationState(): SimulationState {
   return {
     mode: 'dynamic',
-    physicsEngine: 'custom',
+    physicsEngine: 'rk4',
     running: false,
     time: 0,
     playbackSpeed: 1,
