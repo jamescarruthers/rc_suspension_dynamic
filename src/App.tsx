@@ -131,11 +131,15 @@ function App() {
       }
     }
 
+    // Use a local mutable state for substeps to avoid:
+    // 1. Calling setState() every substep (200×/frame Zustand overhead)
+    // 2. Re-reading stale state — each substep must use the previous step's output
+    let localState = state as typeof state
     while (accumRef.current >= dt && steps < maxStepsPerFrame) {
       let newState: Partial<typeof state>
       if (useRapier && isRapierReady()) {
         newState = stepRapierSimulation(
-          state,
+          localState,
           veh.vehicle,
           veh.frontGeometry,
           veh.rearGeometry,
@@ -148,9 +152,9 @@ function App() {
           veh.hydraulic,
           dt
         )
-      } else if (state.physicsEngine === 'rk4-wasm' && isRK4WasmReady()) {
+      } else if (localState.physicsEngine === 'rk4-wasm' && isRK4WasmReady()) {
         newState = stepRK4WasmSimulation(
-          state,
+          localState,
           veh.vehicle,
           veh.frontGeometry,
           veh.rearGeometry,
@@ -163,9 +167,9 @@ function App() {
           veh.hydraulic,
           dt
         )
-      } else if (state.physicsEngine === 'rk4' || (state.physicsEngine === 'rk4-wasm' && !isRK4WasmReady())) {
+      } else if (localState.physicsEngine === 'rk4' || (localState.physicsEngine === 'rk4-wasm' && !isRK4WasmReady())) {
         newState = stepRK4Simulation(
-          state,
+          localState,
           veh.vehicle,
           veh.frontGeometry,
           veh.rearGeometry,
@@ -180,7 +184,7 @@ function App() {
         )
       } else {
         newState = stepSimulation(
-          state,
+          localState,
           veh.vehicle,
           veh.frontGeometry,
           veh.rearGeometry,
@@ -194,9 +198,14 @@ function App() {
           dt
         )
       }
-      useSimulationStore.setState(newState)
+      // Merge into local state for next substep (no store overhead)
+      localState = { ...localState, ...newState } as typeof state
       accumRef.current -= dt
       steps++
+    }
+    // Push final state to store once per frame
+    if (steps > 0) {
+      useSimulationStore.setState(localState)
     }
 
     // Update performance counters
