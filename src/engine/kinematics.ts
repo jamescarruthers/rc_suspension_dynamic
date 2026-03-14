@@ -595,61 +595,56 @@ export function computeGeometricMotionRatio(
 // ─── Rack-based steering (§3.11) ─────────────────────────────────────
 
 /**
- * Compute the Ackermann steering arm length from the rack geometry.
+ * Compute steering arm length and tie rod length from the rack width.
  *
- * At rest (no steer), the tie rod connects the rack inner end (at rackWidth/2
- * from centreline) to the arm tip on the upright. The arm points inward
- * toward the rear axle centre. Solving the tie rod length constraint at
- * rest gives us the arm length as a quadratic:
+ * The steering arm points from the kingpin toward the rear axle centre.
+ * The arm length is set so that the arm tip's lateral position lines up
+ * with the rack inner end (rackWidth/2 from centreline):
  *
- *   L² − 2L(a·c − b·s) + (a² + b² − H²) = 0
+ *   armLength = (kingpinHalfTrack − rackWidth/2) / cos(armAngleRest)
  *
- * where a = kingpinHalfTrack − rackWidth/2, b = rackForwardOffset,
- * c = cos(armAngleRest), s = sin(armAngleRest), H² = horizontal tie rod
- * length squared.
+ * The tie rod length is the 3D distance from rack inner end to arm tip
+ * at rest, so it is fully determined by the rack geometry.
  */
-export function computeAckermannArmLength(
+export function computeSteeringGeometry(
   geo: AxleGeometry,
   rack: SteeringRack,
   wheelbase: number,
-): number {
+): { armLength: number; tieRodLength: number } {
   const hubOffset = geo.hubOffset ?? 0;
   const kingpinHalfTrack = geo.trackWidth / 2 - hubOffset;
   const armAngleRest = Math.atan2(kingpinHalfTrack, wheelbase);
-  const c = Math.cos(armAngleRest);
-  const s = Math.sin(armAngleRest);
 
-  // Height difference for horizontal projection of tie rod
+  // Arm length: arm tip lateral == rack inner end lateral
+  const cosRest = Math.cos(armAngleRest);
+  const armLength = Math.max((kingpinHalfTrack - rack.rackWidth / 2) / (cosRest || 1), 1);
+
+  // Arm tip at rest
+  const armTipLateral = kingpinHalfTrack - armLength * cosRest; // ≈ rackWidth/2
+  const armTipLong = -armLength * Math.sin(armAngleRest);
+
+  // Height difference between rack and arm tip (lower ball joint)
   const kpiRad = degToRad(geo.kpiAngle);
   const halfUpright = geo.uprightHeight / 2;
   const tyreRadiusApprox = 35;
   const lowerBJHeight = tyreRadiusApprox - halfUpright * Math.cos(kpiRad);
   const heightDiff = rack.rackHeight - lowerBJHeight;
-  const horizLenSq = Math.max(
-    rack.tieRodLength * rack.tieRodLength - heightDiff * heightDiff,
-    1,
-  );
 
-  // Quadratic coefficients: L² - 2L·p + q = 0
-  const a = kingpinHalfTrack - rack.rackWidth / 2;
-  const b = rack.rackForwardOffset;
-  const p = a * c - b * s;
-  const q = a * a + b * b - horizLenSq;
+  // Tie rod = 3D distance from rack inner end to arm tip at rest
+  const dLat = armTipLateral - rack.rackWidth / 2;
+  const dLong = armTipLong - rack.rackForwardOffset;
+  const tieRodLength = Math.sqrt(dLat * dLat + dLong * dLong + heightDiff * heightDiff);
 
-  const discriminant = p * p - q;
-  if (discriminant < 0) {
-    // Tie rod can't reach — return a fallback
-    return Math.max(p, 5);
-  }
+  return { armLength, tieRodLength };
+}
 
-  // Take the smaller positive root (shorter arm)
-  const sqrtD = Math.sqrt(discriminant);
-  const L1 = p - sqrtD;
-  const L2 = p + sqrtD;
-
-  if (L1 > 1) return L1;
-  if (L2 > 1) return L2;
-  return 5; // absolute fallback
+/** Convenience: just the arm length. */
+export function computeAckermannArmLength(
+  geo: AxleGeometry,
+  rack: SteeringRack,
+  wheelbase: number,
+): number {
+  return computeSteeringGeometry(geo, rack, wheelbase).armLength;
 }
 
 /**
@@ -677,7 +672,7 @@ export function computeRackSteering(
   rack: SteeringRack,
   wheelbase: number,
 ): { leftAngle: number; rightAngle: number; rackDisplacement: number } {
-  const ackermannArmLength = computeAckermannArmLength(geo, rack, wheelbase);
+  const { armLength: ackermannArmLength, tieRodLength } = computeSteeringGeometry(geo, rack, wheelbase);
 
   if (Math.abs(commandedAngle) < 1e-6 || ackermannArmLength <= 0) {
     return { leftAngle: commandedAngle, rightAngle: commandedAngle, rackDisplacement: 0 };
@@ -742,7 +737,7 @@ export function computeRackSteering(
     const tyreRadiusApprox = 35; // doesn't affect the angle, just the height delta
     const lowerBJHeight = tyreRadiusApprox - halfUpright * Math.cos(kpiRad);
     const heightDiff = rack.rackHeight - lowerBJHeight;
-    const tieRodLenSq = rack.tieRodLength * rack.tieRodLength;
+    const tieRodLenSq = tieRodLength * tieRodLength;
     const heightDiffSq = heightDiff * heightDiff;
     const horizLenSq = Math.max(tieRodLenSq - heightDiffSq, 1);
 
