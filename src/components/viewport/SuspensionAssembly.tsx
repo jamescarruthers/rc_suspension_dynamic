@@ -193,8 +193,8 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   // Inner pivot positions on the chassis
   const kingpinHalfTrack = geo.trackWidth / 2 - (geo.hubOffset ?? 0)
   const innerPivotXLocal = sideSign * (kingpinHalfTrack - lowerWishboneLength)
-  const innerLowerYLocal = chassisHeave + innerPivotHeightLower
-  const innerUpperYLocal = chassisHeave + innerPivotHeightUpper
+  const innerLowerYLocal = vehicle.rideHeight + chassisHeave + innerPivotHeightLower
+  const innerUpperYLocal = vehicle.rideHeight + chassisHeave + innerPivotHeightUpper
 
   // Anti-dive/anti-squat: fore/aft inner pivots at different heights (§3.1, §4.4)
   const sideViewAngleDeg = geo.antiDive || geo.antiSquat || 0
@@ -235,7 +235,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
   const staticLowerMountYLocal = innerPivotHeightLower +
     lowerWishboneLength * Math.sin(lowerArmAngleRad) * shock.damperAttachmentRatio
   const shockTowerXLocal = staticLowerMountXLocal - sideSign * shock.shockLength * Math.sin(shockAngleRad)
-  const shockTowerYLocal = chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
+  const shockTowerYLocal = vehicle.rideHeight + chassisHeave + staticLowerMountYLocal + shock.shockLength * Math.cos(shockAngleRad)
   const shockTower = rot(shockTowerXLocal, shockTowerYLocal, longitudinalOffset)
 
   // ── Kingpin axis — derived from actual BJ positions ──
@@ -743,7 +743,7 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
   const z = axle === 'front'
     ? vehicle.wheelbase * (1 - frontWeightFrac)
     : -vehicle.wheelbase * frontWeightFrac
-  const y = chassisHeave + innerPivotHeightLower + 5
+  const y = vehicle.rideHeight + chassisHeave + innerPivotHeightLower + 5
   const halfWidth = swayBar.armLength
 
   const pL = rot(-halfWidth, y, z)

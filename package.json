@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build:wasm": "wasm-pack build wasm-rk4 --target web --release",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:wasm && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
