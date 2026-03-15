@@ -1,6 +1,7 @@
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { useContext, useCallback } from 'react'
+import { useContext, useCallback, useRef, useState } from 'react'
+import * as THREE from 'three'
 import { GroundPlane } from './GroundPlane'
 import { SuspensionAssembly } from './SuspensionAssembly'
 import { ForceArrows } from './ForceArrows'
@@ -31,11 +32,84 @@ function PerfStatsOverlay() {
   )
 }
 
+type ViewPreset = 'ISO' | 'Front' | 'Side' | 'Top'
+
+const ORTHO_ZOOM = 2.5
+
+function CameraController({ activeView, controlsRef }: {
+  activeView: ViewPreset
+  controlsRef: React.MutableRefObject<any>
+}) {
+  const { camera, size } = useThree()
+
+  const applyView = useCallback((view: ViewPreset) => {
+    const target = new THREE.Vector3(0, 50, 0)
+    const controls = controlsRef.current
+
+    if (view === 'ISO') {
+      // Switch to perspective
+      if (camera instanceof THREE.OrthographicCamera) {
+        // Will be handled by Canvas re-mount via key
+      }
+      camera.position.set(300, 200, 300)
+      camera.lookAt(target)
+    } else {
+      // Orthographic views
+      const aspect = size.width / size.height
+      if (camera instanceof THREE.OrthographicCamera) {
+        const halfH = size.height / ORTHO_ZOOM
+        const halfW = halfH * aspect
+        camera.left = -halfW
+        camera.right = halfW
+        camera.top = halfH
+        camera.bottom = -halfH
+        camera.near = -5000
+        camera.far = 5000
+      }
+
+      if (view === 'Front') {
+        camera.position.set(0, 50, -500)
+      } else if (view === 'Side') {
+        camera.position.set(500, 50, 0)
+      } else if (view === 'Top') {
+        camera.position.set(0, 500, -0.01)
+      }
+      camera.lookAt(target)
+    }
+
+    camera.updateProjectionMatrix()
+    if (controls) {
+      controls.target.copy(target)
+      controls.update()
+    }
+  }, [camera, size, controlsRef])
+
+  // Apply view whenever activeView changes
+  const lastView = useRef<ViewPreset | null>(null)
+  if (activeView !== lastView.current) {
+    lastView.current = activeView
+    // Defer to allow the new camera to be set up on Canvas remount
+    setTimeout(() => applyView(activeView), 0)
+  }
+
+  return null
+}
+
 export function Viewport() {
+  const [activeView, setActiveView] = useState<ViewPreset>('ISO')
+  const controlsRef = useRef<any>(null)
+  const isOrtho = activeView !== 'ISO'
+
   return (
     <div className="flex-1 h-full relative">
       <Canvas
-        camera={{ position: [300, 200, 300], fov: 50, near: 1, far: 5000 }}
+        key={isOrtho ? 'ortho' : 'persp'}
+        orthographic={isOrtho}
+        camera={
+          isOrtho
+            ? { position: [0, 50, -500], zoom: ORTHO_ZOOM, near: -5000, far: 5000 }
+            : { position: [300, 200, 300], fov: 50, near: 1, far: 5000 }
+        }
         gl={{ antialias: true }}
         style={{ background: '#0A0E14' }}
       >
@@ -46,14 +120,18 @@ export function Viewport() {
         <ForceArrows />
         <GroundContactMarkers />
         <OrbitControls
+          ref={controlsRef}
           enableDamping
           dampingFactor={0.1}
-          maxDistance={2000}
-          minDistance={50}
+          maxDistance={isOrtho ? Infinity : 2000}
+          minDistance={isOrtho ? 0 : 50}
+          enableRotate={!isOrtho}
         />
+        <CameraController activeView={activeView} controlsRef={controlsRef} />
         <axesHelper args={[30]} />
       </Canvas>
-      <CameraPresets />
+      <CameraPresets activeView={activeView} setActiveView={setActiveView} />
+      <PartVisibilityToggles />
       <SteeringOverlay />
       <PerfStatsOverlay />
     </div>
@@ -93,15 +171,54 @@ function SteeringOverlay() {
   )
 }
 
-function CameraPresets() {
+function CameraPresets({ activeView, setActiveView }: {
+  activeView: ViewPreset
+  setActiveView: (v: ViewPreset) => void
+}) {
   return (
     <div className="absolute top-2 right-2 flex gap-1">
-      {['ISO', 'Front', 'Side', 'Top'].map((view) => (
+      {(['ISO', 'Front', 'Side', 'Top'] as ViewPreset[]).map((view) => (
         <button
           key={view}
-          className="text-[9px] px-2 py-0.5 bg-[#111820]/80 border border-[#1E2D3D] rounded text-[#8899AA] hover:text-[#00FFE0] backdrop-blur-sm"
+          onClick={() => setActiveView(view)}
+          className={`text-[9px] px-2 py-0.5 bg-[#111820]/80 border rounded backdrop-blur-sm ${
+            activeView === view
+              ? 'border-[#00FFE0] text-[#00FFE0]'
+              : 'border-[#1E2D3D] text-[#8899AA] hover:text-[#00FFE0]'
+          }`}
         >
           {view}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const PART_LABELS: { key: string; label: string }[] = [
+  { key: 'chassis', label: 'Chassis' },
+  { key: 'FL', label: 'FL' },
+  { key: 'FR', label: 'FR' },
+  { key: 'RL', label: 'RL' },
+  { key: 'RR', label: 'RR' },
+]
+
+function PartVisibilityToggles() {
+  const partVisibility = useSimulationStore((s) => s.partVisibility)
+  const toggle = useSimulationStore((s) => s.togglePartVisibility)
+
+  return (
+    <div className="absolute top-2 left-2 flex gap-1">
+      {PART_LABELS.map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => toggle(key)}
+          className={`text-[9px] px-2 py-0.5 bg-[#111820]/80 border rounded backdrop-blur-sm ${
+            partVisibility[key]
+              ? 'border-[#00FFE0] text-[#00FFE0]'
+              : 'border-[#1E2D3D] text-[#556677]'
+          }`}
+        >
+          {label}
         </button>
       ))}
     </div>

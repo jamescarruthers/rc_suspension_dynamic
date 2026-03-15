@@ -173,6 +173,8 @@ export interface SimulationState {
   // Force arrow visibility
   forceVisibility: Record<string, boolean>;
   forceScale: number;
+  // Part visibility
+  partVisibility: Record<string, boolean>;
   // Graph
   graphChannels: string[];
   graphTimeWindow: number;

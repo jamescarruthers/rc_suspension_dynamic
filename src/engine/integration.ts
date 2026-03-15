@@ -395,6 +395,7 @@ export function findStaticEquilibrium(
     roadTargetCorner: 'all',
     forceVisibility: {},
     forceScale: 1,
+    partVisibility: { chassis: true, FL: true, FR: true, RL: true, RR: true },
     graphChannels: [],
     graphTimeWindow: 5,
     graphHistory: [],
