@@ -92,8 +92,8 @@ function defaultSimulationState(): SimulationState {
     // Road surface
     roadSurfaceType: 'singleBump',
     roadBumpHeight: 10,
-    roadBumpWidth: 30,
-    roadBumpShape: 'half-sine',
+    roadBumpWidth: 150,
+    roadBumpShape: 'halfsine',
     roadSpeed: 1000,
     roadFrequency: 1,
     roadAmplitude: 5,

@@ -1,7 +1,7 @@
 // ─── Road surface profile generators ────────────────────────────────
 // Returns ground height in mm for each corner at a given simulation time.
 
-import type { Corner, RoadProfileType, RoadProfileParams } from '../types/suspension';
+import type { Corner, RoadProfileType, RoadProfileParams, BumpShape } from '../types/suspension';
 
 /** Corner longitudinal and lateral offsets from CG, in mm */
 export interface CornerPositions {
@@ -21,16 +21,29 @@ function pseudoRandom(x: number, seed: number = 0): number {
 }
 
 /**
- * Half-sine bump profile.
- * Returns height at a given longitudinal position within the bump.
+ * Bump profile dispatcher — returns height at a longitudinal position.
  */
-function halfSineBump(
+function bumpProfile(
   posAlongBump: number,
   width: number,
   height: number,
+  shape: BumpShape = 'halfsine',
 ): number {
   if (posAlongBump < 0 || posAlongBump > width) return 0;
-  return height * Math.sin((Math.PI * posAlongBump) / width);
+  const t = posAlongBump / width; // normalised 0‥1
+
+  switch (shape) {
+    case 'halfsine':
+      return height * Math.sin(Math.PI * t);
+    case 'fullsine':
+      return height * Math.sin(2 * Math.PI * t);
+    case 'triangle':
+      return height * (t < 0.5 ? 2 * t : 2 * (1 - t));
+    case 'square':
+      return height;
+    default:
+      return height * Math.sin(Math.PI * t);
+  }
 }
 
 /**
@@ -101,7 +114,7 @@ function singleBump(
   for (const c of targets) {
     const rawPos = cornerBumpPosition(time, params.speed, positions[c].x);
     const pos = repeatingBumpPosition(rawPos, params.width, params.speed, params.frequency);
-    result[c] = halfSineBump(pos, params.width, params.height);
+    result[c] = bumpProfile(pos, params.width, params.height, params.shape);
   }
 
   return result;
@@ -118,7 +131,7 @@ function speedBump(
   for (const c of corners) {
     const rawPos = cornerBumpPosition(time, params.speed, positions[c].x);
     const pos = repeatingBumpPosition(rawPos, params.width, params.speed, params.frequency);
-    result[c] = halfSineBump(pos, params.width, params.height);
+    result[c] = bumpProfile(pos, params.width, params.height, params.shape);
   }
 
   return result;

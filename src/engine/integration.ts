@@ -108,6 +108,7 @@ export function stepSimulation(
     width: state.roadBumpWidth,
     speed: state.roadSpeed,
     frequency: state.roadFrequency,
+    shape: state.roadBumpShape as any,
     targetCorner: state.roadTargetCorner as any,
   };
   const ground = getGroundHeightAndVelocity(

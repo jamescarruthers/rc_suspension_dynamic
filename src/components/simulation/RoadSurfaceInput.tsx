@@ -62,6 +62,7 @@ export function RoadSurfaceInput() {
                     className="flex-1"
                   >
                     <option value="halfsine">Half Sine</option>
+                    <option value="fullsine">Full Sine</option>
                     <option value="triangle">Triangle</option>
                     <option value="square">Square</option>
                   </select>
@@ -75,7 +76,7 @@ export function RoadSurfaceInput() {
           )}
 
           {(roadSurfaceType === 'singleBump' || roadSurfaceType === 'speedBump') && (
-            <ParamSlider label="Width" value={roadBumpWidth} min={5} max={200} step={5} unit="mm" onChange={(v) => setRoadSurface({ roadBumpWidth: v })} />
+            <ParamSlider label="Length" value={roadBumpWidth} min={5} max={300} step={5} unit="mm" onChange={(v) => setRoadSurface({ roadBumpWidth: v })} />
           )}
 
           <ParamSlider label="Speed" value={roadSpeed} min={10} max={2000} step={10} unit="mm/s" onChange={(v) => setRoadSurface({ roadSpeed: v })} />

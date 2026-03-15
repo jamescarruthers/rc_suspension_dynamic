@@ -237,6 +237,7 @@ export function stepRK4Simulation(
       width: state.roadBumpWidth,
       speed: state.roadSpeed,
       frequency: state.roadFrequency,
+      shape: state.roadBumpShape as any,
       targetCorner: state.roadTargetCorner as any,
     };
     const ground = getGroundHeightAndVelocity(
@@ -349,6 +350,7 @@ export function stepRK4Simulation(
       width: state.roadBumpWidth,
       speed: state.roadSpeed,
       frequency: state.roadFrequency,
+      shape: state.roadBumpShape as any,
       targetCorner: state.roadTargetCorner as any,
     },
     cornerPos,
