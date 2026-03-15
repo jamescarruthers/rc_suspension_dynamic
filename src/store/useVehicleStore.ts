@@ -23,6 +23,7 @@ const defaultVehicle: VehicleParams = {
   tyreDamping: 0.05,
   tyreRadius: 42,
   tyreWidth: 45,
+  wheelDiameter: 55,
   inertiaScaling: 0.3,
 };
 
@@ -290,6 +291,7 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
             tyreDamping: 0.03,
             tyreRadius: 27,
             tyreWidth: 30,
+            wheelDiameter: 40,
           },
           frontGeometry: {
             ...defaultFrontGeometry,

@@ -24,13 +24,16 @@ function JointSphere({ position, color = CYAN, size = 2 }: { position: [number, 
   )
 }
 
-function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, deflection = 0 }: { position: [number, number, number]; radius: number; width: number; camber: number; toe: number; caster: number; deflection: number }) {
+function WheelTyre({ position, radius, width, wheelRadius, camber = 0, toe = 0, caster = 0, deflection = 0 }: { position: [number, number, number]; radius: number; width: number; wheelRadius: number; camber: number; toe: number; caster: number; deflection: number }) {
   const halfW = width / 2
   const segments = 32
 
   // Deformed tyre profile: flatten the bottom by the deflection amount.
-  // Points below (groundLine = -radius + deflection) get clamped up.
-  const groundLine = -radius + deflection
+  // Visual deflection is amplified so the small physics values (~0.1mm)
+  // are visible on a 42mm radius tyre.
+  const VISUAL_DEFL_SCALE = 20
+  const visualDeflection = Math.min(deflection * VISUAL_DEFL_SCALE, radius * 0.4)
+  const groundLine = -radius + visualDeflection
   const deformedRing = (xOffset: number) => {
     const pts: [number, number, number][] = []
     for (let i = 0; i <= segments; i++) {
@@ -46,7 +49,20 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, d
   const innerRing = useMemo(() => deformedRing(-halfW), [radius, halfW, deflection])
   const outerRing = useMemo(() => deformedRing(halfW), [radius, halfW, deflection])
 
-  // Longitudinal lines connecting inner and outer rings at intervals
+  // Wheel (rim) circles — rigid, no deformation
+  const rimRing = (xOffset: number) => {
+    const pts: [number, number, number][] = []
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2
+      pts.push([xOffset, Math.cos(angle) * wheelRadius, Math.sin(angle) * wheelRadius])
+    }
+    return pts
+  }
+
+  const innerRim = useMemo(() => rimRing(-halfW), [wheelRadius, halfW])
+  const outerRim = useMemo(() => rimRing(halfW), [wheelRadius, halfW])
+
+  // Longitudinal lines connecting inner and outer tyre rings
   const longiLines = useMemo(() => {
     const lines: [number, number, number][][] = []
     const count = 16
@@ -60,21 +76,41 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, d
     return lines
   }, [radius, halfW, deflection])
 
+  // Spokes connecting hub to rim
+  const spokes = useMemo(() => {
+    const lines: [number, number, number][][] = []
+    const count = 5
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2
+      const y = Math.cos(angle) * wheelRadius
+      const z = Math.sin(angle) * wheelRadius
+      lines.push([[0, 0, 0], [0, y, z]])
+    }
+    return lines
+  }, [wheelRadius])
+
   const camberRad = (camber * Math.PI) / 180
   const toeRad = (toe * Math.PI) / 180
   const casterRad = (caster * Math.PI) / 180
 
   // Contact patch width on the ground (visible when deflected)
-  const contactHalfWidth = deflection > 0.5
-    ? Math.sqrt(Math.max(0, radius * radius - (radius - deflection) * (radius - deflection)))
+  const contactHalfWidth = visualDeflection > 0.5
+    ? Math.sqrt(Math.max(0, radius * radius - (radius - visualDeflection) * (radius - visualDeflection)))
     : 0
 
   return (
     <group position={position} rotation={[-casterRad, toeRad, camberRad]}>
+      {/* Tyre outer profile */}
       <Line points={innerRing} color={WHEEL_COLOR} lineWidth={1.5} />
       <Line points={outerRing} color={WHEEL_COLOR} lineWidth={1.5} />
       {longiLines.map((pts, i) => (
         <Line key={i} points={pts} color={WHEEL_COLOR} lineWidth={0.5} />
+      ))}
+      {/* Wheel rim */}
+      <Line points={innerRim} color={CYAN} lineWidth={1.5} />
+      <Line points={outerRim} color={CYAN} lineWidth={1.5} />
+      {spokes.map((pts, i) => (
+        <Line key={`spoke-${i}`} points={pts} color={CYAN} lineWidth={0.5} />
       ))}
       {/* Flat contact patch line at ground level */}
       {contactHalfWidth > 0 && (
@@ -380,6 +416,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         position={[wheelXActual, wheelYActual, wheelZActual]}
         radius={tyreRadius}
         width={vehicle.tyreWidth}
+        wheelRadius={vehicle.wheelDiameter / 2}
         camber={-camber * sideSign}
         toe={(geo.staticToe + steerAngle) * sideSign}
         caster={wheelCasterTiltDeg}

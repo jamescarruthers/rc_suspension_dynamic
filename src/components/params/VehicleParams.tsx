@@ -37,6 +37,9 @@ export function VehicleParams() {
         <ParamSlider label="CG Height" value={vehicle.cgHeight} min={10} max={80} unit="mm" onChange={(v) => update('cgHeight', v)} />
         <ParamSlider label="Ride Height" value={vehicle.rideHeight} min={5} max={50} unit="mm" onChange={(v) => update('rideHeight', v)} />
         <ParamSlider label="Unsprung Mass" value={vehicle.unsprungMassPerCorner} min={20} max={200} unit="g" onChange={(v) => update('unsprungMassPerCorner', v)} />
+        <ParamSlider label="Tyre Diameter" value={vehicle.tyreRadius * 2} min={30} max={120} step={1} unit="mm" onChange={(v) => update('tyreRadius', v / 2)} />
+        <ParamSlider label="Wheel Diameter" value={vehicle.wheelDiameter} min={20} max={100} step={1} unit="mm" onChange={(v) => update('wheelDiameter', v)} />
+        <ParamSlider label="Tyre Width" value={vehicle.tyreWidth} min={15} max={80} step={1} unit="mm" onChange={(v) => update('tyreWidth', v)} />
         <ParamSlider label="Tyre Spring Rate" value={vehicle.tyreSpringRate} min={10} max={500} step={5} unit="N/mm" onChange={(v) => update('tyreSpringRate', v)} />
         <ParamSlider label="Tyre Damping" value={vehicle.tyreDamping} min={0.001} max={0.5} step={0.005} unit="Ns/mm" onChange={(v) => update('tyreDamping', v)} />
 
