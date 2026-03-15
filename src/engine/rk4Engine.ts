@@ -275,7 +275,7 @@ export function stepRK4Simulation(
         heave + vehicle.rideHeight, rollRad, pitchRad,
         arm.lateral, arm.longitudinal,
       );
-      const shockComp = wheelPos[c] - sprungZ + vehicle.rideHeight;
+      const shockComp = wheelPos[c] - sprungZ + vehicle.rideHeight - tyreRadius;
       const sprungVelZ = heaveVel +
         arm.lateral * rollVel * Math.cos(rollRad) +
         arm.longitudinal * pitchVel * Math.cos(pitchRad);
@@ -399,7 +399,7 @@ export function stepRK4Simulation(
       sv[S_HEAVE] + vehicle.rideHeight, finalRollRad, finalPitchRad,
       arm.lateral, arm.longitudinal,
     );
-    newCorners[c].suspensionCompression = sv[WHEEL_POS_INDICES[idx]] - sprungZ + vehicle.rideHeight;
+    newCorners[c].suspensionCompression = sv[WHEEL_POS_INDICES[idx]] - sprungZ + vehicle.rideHeight - tyreRadius;
     newCorners[c].shockCompression = newCorners[c].suspensionCompression;
 
     const sprungVelZ = sv[S_VHEAVE] +
