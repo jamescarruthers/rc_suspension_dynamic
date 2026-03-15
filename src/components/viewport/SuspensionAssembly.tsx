@@ -317,12 +317,19 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
     stubDirZ, Math.sqrt(stubDirX * stubDirX + stubDirY * stubDirY)
   ) * (180 / Math.PI)
 
+  // ── Ground height from physics state ──
+  // When in contact: groundHeight = wheelPosition - tyreRadius + tyreDeflection
+  // When airborne: fall back to 0
+  const groundHeight = cornerState.wheelAirborne
+    ? 0
+    : cornerState.wheelPosition - tyreRadius + cornerState.tyreDeflection
+
   // ── Kingpin axis ground intercept (§3.3) ──
-  // Extend the line from lower BJ through upper BJ to Y=0 (ground plane)
+  // Extend the line from lower BJ through upper BJ to Y=groundHeight
   let kingpinGroundX = outerLowerX
   let kingpinGroundZ = outerLowerZ
   if (Math.abs(kingpinDirY) > 1e-6) {
-    const tGround = -outerLowerY / kingpinDirY
+    const tGround = (groundHeight - outerLowerY) / kingpinDirY
     kingpinGroundX = outerLowerX + tGround * kingpinDirX
     kingpinGroundZ = outerLowerZ + tGround * kingpinDirZ
   }
@@ -361,7 +368,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       {/* Contact patch shadow on ground — shifted by camber (§3.8) */}
       {!cornerState.wheelAirborne && (
         <ContactPatchShadow
-          position={[contactPatchX, 0.1, contactPatchZ]}
+          position={[contactPatchX, groundHeight + 0.1, contactPatchZ]}
           width={vehicle.tyreWidth}
           length={tyreRadius * 0.4}
         />
@@ -408,7 +415,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       {/* Kingpin axis — extended to ground plane and above upright (§3.3) */}
       <Line
         points={[
-          [kingpinGroundX, 0, kingpinGroundZ],
+          [kingpinGroundX, groundHeight, kingpinGroundZ],
           [outerUpperX + (outerUpperX - outerLowerX) * 0.3,
            outerUpperY + (outerUpperY - outerLowerY) * 0.3,
            outerUpperZ + (outerUpperZ - outerLowerZ) * 0.3],
@@ -421,7 +428,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
       />
 
       {/* Kingpin ground intercept marker — shows scrub radius (§3.3) */}
-      <JointSphere position={[kingpinGroundX, 0.5, kingpinGroundZ]} color="#FF4444" size={1} />
+      <JointSphere position={[kingpinGroundX, groundHeight + 0.5, kingpinGroundZ]} color="#FF4444" size={1} />
 
       {/* Axle stub — perpendicular to upright face (§3.4) */}
       <Line
