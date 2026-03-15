@@ -128,28 +128,25 @@ function CameraController({ activeView, controlsRef }: {
     setTimeout(() => applyView(activeView), 0)
   }
 
-  // Fixed ISO: custom two-finger / right-click rotation with 30-degree stepping
+  // Fixed ISO: left-click / single-finger for 30-deg stepped rotation
+  // OrbitControls handles right-click / two-finger for panning
   useEffect(() => {
     if (activeView !== 'Fixed') return
     const domElement = gl.domElement
     const controls = controlsRef.current
 
-    // --- Mouse: right-button drag ---
+    // Disable OrbitControls panning on left button (we use it for rotation)
+    // and enable pan on right button / two-finger
+    if (controls) {
+      controls.mouseButtons = { LEFT: null, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }
+      controls.touches = { ONE: null, TWO: TOUCH.DOLLY_PAN }
+    }
+
     let mouseDown = false
-    let mouseStartX = 0
-    let mouseStartY = 0
     let accumX = 0
     let accumY = 0
-
-    const onMouseDown = (e: MouseEvent) => {
-      if (e.button !== 2) return
-      mouseDown = true
-      mouseStartX = e.clientX
-      mouseStartY = e.clientY
-      accumX = 0
-      accumY = 0
-      e.preventDefault()
-    }
+    let lastX = 0
+    let lastY = 0
 
     const stepCamera = (dxSteps: number, dySteps: number) => {
       if (dxSteps === 0 && dySteps === 0) return
@@ -161,12 +158,21 @@ function CameraController({ activeView, controlsRef }: {
       if (controls) controls.update()
     }
 
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return  // left button only
+      mouseDown = true
+      lastX = e.clientX
+      lastY = e.clientY
+      accumX = 0
+      accumY = 0
+    }
+
     const onMouseMove = (e: MouseEvent) => {
       if (!mouseDown) return
-      accumX += e.clientX - mouseStartX
-      accumY += e.clientY - mouseStartY
-      mouseStartX = e.clientX
-      mouseStartY = e.clientY
+      accumX += e.clientX - lastX
+      accumY += e.clientY - lastY
+      lastX = e.clientX
+      lastY = e.clientY
 
       let dxSteps = 0
       let dySteps = 0
@@ -178,45 +184,36 @@ function CameraController({ activeView, controlsRef }: {
     }
 
     const onMouseUp = (e: MouseEvent) => {
-      if (e.button === 2) mouseDown = false
+      if (e.button === 0) mouseDown = false
     }
 
-    // --- Touch: two-finger drag ---
+    // --- Touch: single-finger drag for rotation ---
     let touchActive = false
-    let touchStartX = 0
-    let touchStartY = 0
+    let touchLastX = 0
+    let touchLastY = 0
     let touchAccumX = 0
     let touchAccumY = 0
 
-    const touchCentroid = (touches: TouchList): [number, number] | null => {
-      if (touches.length < 2) return null
-      return [
-        (touches[0].clientX + touches[1].clientX) / 2,
-        (touches[0].clientY + touches[1].clientY) / 2,
-      ]
-    }
-
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length === 1) {
         touchActive = true
-        const c = touchCentroid(e.touches)!
-        touchStartX = c[0]
-        touchStartY = c[1]
+        touchLastX = e.touches[0].clientX
+        touchLastY = e.touches[0].clientY
         touchAccumX = 0
         touchAccumY = 0
-        // Prevent OrbitControls from processing this as dolly
         e.preventDefault()
-        e.stopPropagation()
+      } else {
+        // Two+ fingers: let OrbitControls handle pan
+        touchActive = false
       }
     }
 
     const onTouchMove = (e: TouchEvent) => {
-      if (!touchActive || e.touches.length < 2) return
-      const c = touchCentroid(e.touches)!
-      touchAccumX += c[0] - touchStartX
-      touchAccumY += c[1] - touchStartY
-      touchStartX = c[0]
-      touchStartY = c[1]
+      if (!touchActive || e.touches.length !== 1) return
+      touchAccumX += e.touches[0].clientX - touchLastX
+      touchAccumY += e.touches[0].clientY - touchLastY
+      touchLastX = e.touches[0].clientX
+      touchLastY = e.touches[0].clientY
 
       let dxSteps = 0
       let dySteps = 0
@@ -227,15 +224,11 @@ function CameraController({ activeView, controlsRef }: {
       stepCamera(dxSteps, dySteps)
 
       e.preventDefault()
-      e.stopPropagation()
     }
 
-    const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) touchActive = false
+    const onTouchEnd = () => {
+      touchActive = false
     }
-
-    // Prevent context menu on right-click
-    const onContextMenu = (e: Event) => e.preventDefault()
 
     domElement.addEventListener('mousedown', onMouseDown)
     domElement.addEventListener('mousemove', onMouseMove)
@@ -243,16 +236,19 @@ function CameraController({ activeView, controlsRef }: {
     domElement.addEventListener('touchstart', onTouchStart, { passive: false })
     domElement.addEventListener('touchmove', onTouchMove, { passive: false })
     domElement.addEventListener('touchend', onTouchEnd)
-    domElement.addEventListener('contextmenu', onContextMenu)
 
     return () => {
+      // Restore OrbitControls defaults when leaving Fixed mode
+      if (controls) {
+        controls.mouseButtons = { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }
+        controls.touches = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }
+      }
       domElement.removeEventListener('mousedown', onMouseDown)
       domElement.removeEventListener('mousemove', onMouseMove)
       domElement.removeEventListener('mouseup', onMouseUp)
       domElement.removeEventListener('touchstart', onTouchStart)
       domElement.removeEventListener('touchmove', onTouchMove)
       domElement.removeEventListener('touchend', onTouchEnd)
-      domElement.removeEventListener('contextmenu', onContextMenu)
     }
   }, [activeView, camera, gl, controlsRef])
 
@@ -282,10 +278,6 @@ export function Viewport() {
           enableDamping
           dampingFactor={0.1}
           enableRotate={activeView === 'ISO'}
-          {...(activeView === 'Fixed' ? {
-            mouseButtons: { LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: undefined as any },
-            touches: { ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_PAN },
-          } : {})}
         />
         <CameraController activeView={activeView} controlsRef={controlsRef} />
         <axesHelper args={[30]} />
