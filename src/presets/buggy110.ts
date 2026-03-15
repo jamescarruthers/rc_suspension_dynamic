@@ -19,6 +19,7 @@ export const vehicle: VehicleParams = {
   tyreDamping: 0.03,
   tyreRadius: 27,
   tyreWidth: 30,
+  wheelDiameter: 40,
   inertiaScaling: 0.3,
 };
 
