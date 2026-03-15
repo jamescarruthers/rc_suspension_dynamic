@@ -847,13 +847,15 @@ function SteeringLinkage({ axle }: { axle: 'front' | 'rear' }) {
 }
 
 export function SuspensionAssembly() {
+  const pv = useSimulationStore((s) => s.partVisibility)
+
   return (
     <group>
-      <Chassis />
-      <CornerAssembly corner="FL" side="left" />
-      <CornerAssembly corner="FR" side="right" />
-      <CornerAssembly corner="RL" side="left" />
-      <CornerAssembly corner="RR" side="right" />
+      {pv.chassis && <Chassis />}
+      {pv.FL && <CornerAssembly corner="FL" side="left" />}
+      {pv.FR && <CornerAssembly corner="FR" side="right" />}
+      {pv.RL && <CornerAssembly corner="RL" side="left" />}
+      {pv.RR && <CornerAssembly corner="RR" side="right" />}
       <AntiRollBarVisual axle="front" />
       <AntiRollBarVisual axle="rear" />
       <SteeringLinkage axle="front" />

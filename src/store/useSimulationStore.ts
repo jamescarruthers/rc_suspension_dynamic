@@ -92,8 +92,8 @@ function defaultSimulationState(): SimulationState {
     // Road surface
     roadSurfaceType: 'singleBump',
     roadBumpHeight: 10,
-    roadBumpWidth: 30,
-    roadBumpShape: 'half-sine',
+    roadBumpWidth: 150,
+    roadBumpShape: 'halfsine',
     roadSpeed: 1000,
     roadFrequency: 1,
     roadAmplitude: 5,
@@ -101,6 +101,14 @@ function defaultSimulationState(): SimulationState {
     // Force arrow visibility
     forceVisibility: defaultForceVisibility(),
     forceScale: 1,
+    // Part visibility
+    partVisibility: {
+      chassis: true,
+      FL: true,
+      FR: true,
+      RL: true,
+      RR: true,
+    } as Record<string, boolean>,
     // Graph
     graphChannels: ['chassisHeave', 'rollAngle'],
     graphTimeWindow: 5,
@@ -140,6 +148,10 @@ interface SimulationStore extends SimulationState {
   // Force visualization
   toggleForceVisibility: (key: string) => void;
   setForceScale: (scale: number) => void;
+
+  // Part visibility
+  partVisibility: Record<string, boolean>;
+  togglePartVisibility: (key: string) => void;
 
   // Graph
   setGraphChannels: (channels: string[]) => void;
@@ -228,6 +240,14 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
     })),
 
   setForceScale: (scale) => set({ forceScale: scale }),
+
+  togglePartVisibility: (key) =>
+    set((state) => ({
+      partVisibility: {
+        ...state.partVisibility,
+        [key]: !state.partVisibility[key],
+      },
+    })),
 
   setGraphChannels: (channels) => set({ graphChannels: channels }),
 

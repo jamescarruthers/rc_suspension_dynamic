@@ -173,6 +173,8 @@ export interface SimulationState {
   // Force arrow visibility
   forceVisibility: Record<string, boolean>;
   forceScale: number;
+  // Part visibility
+  partVisibility: Record<string, boolean>;
   // Graph
   graphChannels: string[];
   graphTimeWindow: number;
@@ -205,15 +207,19 @@ export type RoadProfileType =
   | 'step'
   | 'random';
 
+export type BumpShape = 'halfsine' | 'fullsine' | 'triangle' | 'square';
+
 export interface RoadProfileParams {
   /** Bump / obstacle height in mm */
   height: number;
-  /** Bump width in mm (longitudinal extent) */
+  /** Bump length in mm (longitudinal extent) */
   width: number;
   /** Vehicle speed in mm/s */
   speed: number;
   /** Washboard frequency in Hz */
   frequency: number;
+  /** Bump cross-section shape */
+  shape?: BumpShape;
   /** Which corner the obstacle targets (for singleBump) */
   targetCorner?: Corner;
   /** Random seed */

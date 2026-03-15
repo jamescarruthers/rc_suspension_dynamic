@@ -108,6 +108,7 @@ export function stepSimulation(
     width: state.roadBumpWidth,
     speed: state.roadSpeed,
     frequency: state.roadFrequency,
+    shape: state.roadBumpShape as any,
     targetCorner: state.roadTargetCorner as any,
   };
   const ground = getGroundHeightAndVelocity(
@@ -395,6 +396,7 @@ export function findStaticEquilibrium(
     roadTargetCorner: 'all',
     forceVisibility: {},
     forceScale: 1,
+    partVisibility: { chassis: true, FL: true, FR: true, RL: true, RR: true },
     graphChannels: [],
     graphTimeWindow: 5,
     graphHistory: [],
