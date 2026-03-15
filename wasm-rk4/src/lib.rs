@@ -117,7 +117,7 @@ const PARAMS_SIZE: usize = 53;
 
 // ─── Road surface buffer layout ─────────────────────────────────────────────
 // Passed from JS: road profile type + params + corner positions
-const R_TYPE: usize = 0; // 0=flat,1=singleBump,2=speedBump,3=diagonalTwist,4=washboard,5=step,6=random
+const R_TYPE: usize = 0; // 0=flat,1=singleBump,2=speedBump,3=diagonalTwist,4=washboard,5=step,6=random,7=precomputed
 const R_HEIGHT: usize = 1;
 const R_WIDTH: usize = 2;
 const R_SPEED: usize = 3;
@@ -529,6 +529,24 @@ fn get_ground_heights(road: &[f64], time: f64, out: &mut [f64; 4]) {
                 let noise2 = pseudo_random(quantized * 0.037, seed + 7.0);
                 let val = height * 0.5 * (noise1 * 0.6 + noise2 * 0.4 + 0.5);
                 out[i] = val.max(0.0);
+            }
+        }
+        7 => {
+            // precomputed: JS provides heights at t0 and t0+dt, we lerp
+            // r[1] = base time (t0), r[2] = dt
+            // r[3..6] = heights at t0 (FL,FR,RL,RR)
+            // r[7..10] = heights at t0+dt (FL,FR,RL,RR)
+            let t0 = road[1];
+            let dt_road = road[2];
+            let alpha = if dt_road > 0.0 {
+                ((time - t0) / dt_road).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            for i in 0..4 {
+                let h0 = road[3 + i];
+                let h1 = road[7 + i];
+                out[i] = h0 + alpha * (h1 - h0);
             }
         }
         _ => {} // flat

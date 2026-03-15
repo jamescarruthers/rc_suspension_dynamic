@@ -340,8 +340,8 @@ function getIsoProfile(isoClass: IsoRoadClass, seed: number): IsoProfile {
   if (cached) return cached;
 
   const Gd0 = ISO_CLASSES[isoClass];
-  const length = 100;          // 100m repeating segment
-  const dx = 0.005;            // 5mm spatial step
+  const length = 20;           // 20m repeating segment
+  const dx = 0.001;            // 1mm spatial step
   const nSamples = Math.round(length / dx);
   const nHarmonics = 500;
   const omegaL = 2 * Math.PI * 0.01;  // 0.01 cycles/m

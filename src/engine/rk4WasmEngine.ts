@@ -24,6 +24,7 @@ import {
   computeAckermannPercent,
 } from './kinematics';
 import { computeLeverArms } from './dynamics';
+import { getGroundHeight, type CornerPositions } from './roadSurface';
 
 // ─── WASM module interface ──────────────────────────────────────────────────
 
@@ -204,34 +205,88 @@ const TARGET_CORNER_MAP: Record<string, number> = {
   front: 4, rear: 5, all: 6,
 };
 
+/** Build corner positions once for road height lookups */
+function buildCornerPositions(
+  vehicle: VehicleParams,
+  frontGeo: AxleGeometry,
+  rearGeo: AxleGeometry,
+): CornerPositions {
+  const frac = vehicle.weightDistribution / 100;
+  const distToFront = vehicle.wheelbase * (1 - frac);
+  const distToRear = vehicle.wheelbase * frac;
+  return {
+    FL: { x: distToFront, y: -frontGeo.trackWidth / 2 },
+    FR: { x: distToFront, y: frontGeo.trackWidth / 2 },
+    RL: { x: -distToRear, y: -rearGeo.trackWidth / 2 },
+    RR: { x: -distToRear, y: rearGeo.trackWidth / 2 },
+  };
+}
+
 function packRoad(
   state: SimulationState,
   vehicle: VehicleParams,
   frontGeo: AxleGeometry,
   rearGeo: AxleGeometry,
+  dt: number,
 ): void {
   const r = roadBuf;
-  r[0] = ROAD_TYPE_MAP[state.roadSurfaceType] ?? 0;
-  r[1] = state.roadBumpHeight;
-  r[2] = state.roadBumpWidth;
-  r[3] = state.roadSpeed;
-  r[4] = state.roadFrequency;
-  r[5] = TARGET_CORNER_MAP[state.roadTargetCorner as string] ?? 0;
-  r[6] = 42; // seed
+  const nativeType = ROAD_TYPE_MAP[state.roadSurfaceType];
 
-  // Corner positions (longitudinal and lateral offsets from CG)
-  const frac = vehicle.weightDistribution / 100;
-  const distToFront = vehicle.wheelbase * (1 - frac);
-  const distToRear = vehicle.wheelbase * frac;
+  if (nativeType !== undefined) {
+    // WASM handles this road type natively
+    r[0] = nativeType;
+    r[1] = state.roadBumpHeight;
+    r[2] = state.roadBumpWidth;
+    r[3] = state.roadSpeed;
+    r[4] = state.roadFrequency;
+    r[5] = TARGET_CORNER_MAP[state.roadTargetCorner as string] ?? 0;
+    r[6] = 42; // seed
 
-  r[7] = distToFront;                    // FL x
-  r[8] = -frontGeo.trackWidth / 2;       // FL y
-  r[9] = distToFront;                    // FR x
-  r[10] = frontGeo.trackWidth / 2;       // FR y
-  r[11] = -distToRear;                   // RL x
-  r[12] = -rearGeo.trackWidth / 2;       // RL y
-  r[13] = -distToRear;                   // RR x
-  r[14] = rearGeo.trackWidth / 2;        // RR y
+    const frac = vehicle.weightDistribution / 100;
+    const distToFront = vehicle.wheelbase * (1 - frac);
+    const distToRear = vehicle.wheelbase * frac;
+
+    r[7] = distToFront;
+    r[8] = -frontGeo.trackWidth / 2;
+    r[9] = distToFront;
+    r[10] = frontGeo.trackWidth / 2;
+    r[11] = -distToRear;
+    r[12] = -rearGeo.trackWidth / 2;
+    r[13] = -distToRear;
+    r[14] = rearGeo.trackWidth / 2;
+  } else {
+    // Compute heights in JS and pass as precomputed (type 7)
+    // WASM will lerp between t0 and t0+dt for intermediate RK4 evaluations
+    const cornerPos = buildCornerPositions(vehicle, frontGeo, rearGeo);
+    const roadParams = {
+      height: state.roadBumpHeight,
+      width: state.roadBumpWidth,
+      speed: state.roadSpeed,
+      frequency: state.roadFrequency,
+      shape: state.roadBumpShape as any,
+      targetCorner: state.roadTargetCorner as any,
+      isoClass: state.roadIsoClass,
+      isoScale: state.roadIsoScale,
+    };
+    const h0 = getGroundHeight(state.roadSurfaceType as any, roadParams, cornerPos, state.time);
+    const h1 = getGroundHeight(state.roadSurfaceType as any, roadParams, cornerPos, state.time + dt);
+
+    r[0] = 7; // precomputed
+    r[1] = state.time;
+    r[2] = dt;
+    r[3] = h0.FL;
+    r[4] = h0.FR;
+    r[5] = h0.RL;
+    r[6] = h0.RR;
+    r[7] = h1.FL;
+    r[8] = h1.FR;
+    r[9] = h1.RL;
+    r[10] = h1.RR;
+    r[11] = 0;
+    r[12] = 0;
+    r[13] = 0;
+    r[14] = 0;
+  }
 }
 
 // ─── Output unpacking ───────────────────────────────────────────────────────
@@ -267,7 +322,7 @@ export function stepRK4WasmSimulation(
   // Pack inputs
   packState(state);
   packParams(vehicle, frontGeo, rearGeo, frontShock, rearShock, frontSwayBar, rearSwayBar, hydraulic);
-  packRoad(state, vehicle, frontGeo, rearGeo);
+  packRoad(state, vehicle, frontGeo, rearGeo, dt);
 
   // Call WASM step
   wasmModule.rk4_step(stateBuf, paramsBuf, roadBuf, state.time, dt);
