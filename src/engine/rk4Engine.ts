@@ -296,7 +296,7 @@ export function stepRK4Simulation(
       cornerForces[c].bumpStopForce = forces.bumpStopForce;
     }
 
-    // Sway bar forces
+    // Sway bar forces (attached to uprights — uses wheel travel at upright)
     const frontSwayForce = computeSwayBarForce(
       shockCompressions.FL, shockCompressions.FR, frontSwayBar,
     );

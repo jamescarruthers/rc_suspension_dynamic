@@ -198,9 +198,9 @@ export function stepSimulation(
     newCorners[c].bumpStopForce = forces.bumpStopForce;
   }
 
-  // Sway bar
+  // Sway bar (attached to uprights — uses suspension compression i.e. wheel travel)
   const frontSwayForce = computeSwayBarForce(
-    newCorners.FL.shockCompression, newCorners.FR.shockCompression, frontSwayBar,
+    newCorners.FL.suspensionCompression, newCorners.FR.suspensionCompression, frontSwayBar,
   );
   cornerForces.FL.swayBarForce = frontSwayForce;
   cornerForces.FR.swayBarForce = -frontSwayForce;
@@ -208,7 +208,7 @@ export function stepSimulation(
   newCorners.FR.swayBarForce = -frontSwayForce;
 
   const rearSwayForce = computeSwayBarForce(
-    newCorners.RL.shockCompression, newCorners.RR.shockCompression, rearSwayBar,
+    newCorners.RL.suspensionCompression, newCorners.RR.suspensionCompression, rearSwayBar,
   );
   cornerForces.RL.swayBarForce = rearSwayForce;
   cornerForces.RR.swayBarForce = -rearSwayForce;

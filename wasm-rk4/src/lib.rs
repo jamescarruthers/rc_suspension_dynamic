@@ -318,7 +318,7 @@ fn compute_corner_forces(
     (spring_force, damper_force, bump_stop_force, total)
 }
 
-// ─── Sway bar force ─────────────────────────────────────────────────────────
+// ─── Sway bar force (attached to uprights) ──────────────────────────────────
 
 #[inline]
 fn compute_sway_bar_force(
