@@ -29,8 +29,11 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, d
   const segments = 32
 
   // Deformed tyre profile: flatten the bottom by the deflection amount.
-  // Points below (groundLine = -radius + deflection) get clamped up.
-  const groundLine = -radius + deflection
+  // Visual deflection is amplified so the small physics values (~0.1mm)
+  // are visible on a 42mm radius tyre.
+  const VISUAL_DEFL_SCALE = 20
+  const visualDeflection = Math.min(deflection * VISUAL_DEFL_SCALE, radius * 0.4)
+  const groundLine = -radius + visualDeflection
   const deformedRing = (xOffset: number) => {
     const pts: [number, number, number][] = []
     for (let i = 0; i <= segments; i++) {
@@ -65,8 +68,8 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, d
   const casterRad = (caster * Math.PI) / 180
 
   // Contact patch width on the ground (visible when deflected)
-  const contactHalfWidth = deflection > 0.5
-    ? Math.sqrt(Math.max(0, radius * radius - (radius - deflection) * (radius - deflection)))
+  const contactHalfWidth = visualDeflection > 0.5
+    ? Math.sqrt(Math.max(0, radius * radius - (radius - visualDeflection) * (radius - visualDeflection)))
     : 0
 
   return (
