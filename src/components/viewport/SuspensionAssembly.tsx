@@ -60,28 +60,6 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, d
     return lines
   }, [radius, halfW, deflection])
 
-  // Tyre spring: a small coil drawn inside the tyre between the hub and
-  // the contact patch area, showing the tyre's vertical spring element.
-  const springCoils = 5
-  const springRadius = radius * 0.15
-  const springPts = useMemo(() => {
-    const pts: [number, number, number][] = []
-    // Spring runs from hub (y=0) down to ground line
-    const springTop = 0
-    const springBot = groundLine + 2 // small gap above ground
-    const springLen = springTop - springBot
-    if (springLen < 2) return pts // too compressed to draw
-    const stepsPerCoil = 8
-    const totalSteps = springCoils * stepsPerCoil
-    for (let i = 0; i <= totalSteps; i++) {
-      const t = i / totalSteps
-      const y = springTop - t * springLen
-      const x = Math.sin(t * springCoils * Math.PI * 2) * springRadius
-      pts.push([x, y, 0])
-    }
-    return pts
-  }, [radius, deflection])
-
   const camberRad = (camber * Math.PI) / 180
   const toeRad = (toe * Math.PI) / 180
   const casterRad = (caster * Math.PI) / 180
@@ -118,10 +96,6 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, d
         <sphereGeometry args={[1.5, 6, 6]} />
         <meshBasicMaterial color={WHEEL_COLOR} />
       </mesh>
-      {/* Tyre spring */}
-      {springPts.length > 2 && (
-        <Line points={springPts} color={ORANGE} lineWidth={1.5} />
-      )}
     </group>
   )
 }
