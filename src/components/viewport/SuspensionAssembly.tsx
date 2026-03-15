@@ -24,27 +24,27 @@ function JointSphere({ position, color = CYAN, size = 2 }: { position: [number, 
   )
 }
 
-function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0 }: { position: [number, number, number]; radius: number; width: number; camber: number; toe: number; caster: number }) {
+function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0, deflection = 0 }: { position: [number, number, number]; radius: number; width: number; camber: number; toe: number; caster: number; deflection: number }) {
   const halfW = width / 2
   const segments = 32
 
-  const innerRing = useMemo(() => {
+  // Deformed tyre profile: flatten the bottom by the deflection amount.
+  // Points below (groundLine = -radius + deflection) get clamped up.
+  const groundLine = -radius + deflection
+  const deformedRing = (xOffset: number) => {
     const pts: [number, number, number][] = []
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2
-      pts.push([-halfW, Math.cos(angle) * radius, Math.sin(angle) * radius])
+      let y = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
+      if (y < groundLine) y = groundLine
+      pts.push([xOffset, y, z])
     }
     return pts
-  }, [radius, halfW])
+  }
 
-  const outerRing = useMemo(() => {
-    const pts: [number, number, number][] = []
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI * 2
-      pts.push([halfW, Math.cos(angle) * radius, Math.sin(angle) * radius])
-    }
-    return pts
-  }, [radius, halfW])
+  const innerRing = useMemo(() => deformedRing(-halfW), [radius, halfW, deflection])
+  const outerRing = useMemo(() => deformedRing(halfW), [radius, halfW, deflection])
 
   // Longitudinal lines connecting inner and outer rings at intervals
   const longiLines = useMemo(() => {
@@ -52,16 +52,22 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0 }:
     const count = 16
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2
-      const y = Math.cos(angle) * radius
+      let y = Math.cos(angle) * radius
       const z = Math.sin(angle) * radius
+      if (y < groundLine) y = groundLine
       lines.push([[-halfW, y, z], [halfW, y, z]])
     }
     return lines
-  }, [radius, halfW])
+  }, [radius, halfW, deflection])
 
   const camberRad = (camber * Math.PI) / 180
   const toeRad = (toe * Math.PI) / 180
   const casterRad = (caster * Math.PI) / 180
+
+  // Contact patch width on the ground (visible when deflected)
+  const contactHalfWidth = deflection > 0.5
+    ? Math.sqrt(Math.max(0, radius * radius - (radius - deflection) * (radius - deflection)))
+    : 0
 
   return (
     <group position={position} rotation={[-casterRad, toeRad, camberRad]}>
@@ -70,12 +76,26 @@ function WheelTyre({ position, radius, width, camber = 0, toe = 0, caster = 0 }:
       {longiLines.map((pts, i) => (
         <Line key={i} points={pts} color={WHEEL_COLOR} lineWidth={0.5} />
       ))}
-      {/* Contact patch indicator */}
-      <Line
-        points={[[-halfW, -radius, 0], [halfW, -radius, 0]]}
-        color={WHEEL_COLOR}
-        lineWidth={2}
-      />
+      {/* Flat contact patch line at ground level */}
+      {contactHalfWidth > 0 && (
+        <>
+          <Line
+            points={[[-halfW, groundLine, -contactHalfWidth], [-halfW, groundLine, contactHalfWidth]]}
+            color={YELLOW}
+            lineWidth={2}
+          />
+          <Line
+            points={[[halfW, groundLine, -contactHalfWidth], [halfW, groundLine, contactHalfWidth]]}
+            color={YELLOW}
+            lineWidth={2}
+          />
+        </>
+      )}
+      {/* Hub dot */}
+      <mesh>
+        <sphereGeometry args={[1.5, 6, 6]} />
+        <meshBasicMaterial color={WHEEL_COLOR} />
+      </mesh>
     </group>
   )
 }
@@ -363,6 +383,7 @@ function CornerAssembly({ corner, side }: { corner: Corner; side: 'left' | 'righ
         camber={-camber * sideSign}
         toe={(geo.staticToe + steerAngle) * sideSign}
         caster={wheelCasterTiltDeg}
+        deflection={cornerState.tyreDeflection}
       />
 
       {/* Contact patch shadow on ground — shifted by camber (§3.8) */}
