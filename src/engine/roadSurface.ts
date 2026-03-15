@@ -1,7 +1,7 @@
 // ─── Road surface profile generators ────────────────────────────────
 // Returns ground height in mm for each corner at a given simulation time.
 
-import type { Corner, RoadProfileType, RoadProfileParams, BumpShape } from '../types/suspension';
+import type { Corner, RoadProfileType, RoadProfileParams, BumpShape, IsoRoadClass } from '../types/suspension';
 
 /** Corner longitudinal and lateral offsets from CG, in mm */
 export interface CornerPositions {
@@ -297,6 +297,127 @@ function random(
   return result;
 }
 
+// ─── ISO 8608 Road Surface ──────────────────────────────────────────
+
+/** ISO 8608 roughness coefficients Gd(Ω0) in m³ at Ω0 = 1 rad/m */
+const ISO_CLASSES: Record<IsoRoadClass, number> = {
+  A: 16e-6,
+  B: 64e-6,
+  C: 256e-6,
+  D: 1024e-6,
+  E: 4096e-6,
+  F: 16384e-6,
+  G: 65536e-6,
+  H: 262144e-6,
+};
+
+/**
+ * ISO 8608 one-sided PSD: Gd(Ω) = Gd(Ω0) × (Ω/Ω0)^(-w), w=2
+ */
+function isoPSD(omega: number, Gd0: number): number {
+  return Gd0 * Math.pow(omega, -2); // Ω0 = 1 rad/m
+}
+
+/**
+ * Pre-computed ISO 8608 road elevation profile.
+ * Generated via Shinozuka sinusoidal superposition:
+ *   z(x) = Σ A_i cos(Ω_i x + φ_i)
+ *   A_i  = sqrt(2 × Gd(Ω_i) × ΔΩ)
+ *
+ * Cached per (class, seed) so all four wheels sample the same surface.
+ */
+interface IsoProfile {
+  z: Float64Array;  // elevation in metres
+  dx: number;       // spatial step in metres
+  length: number;   // total length in metres
+}
+
+const isoProfileCache = new Map<string, IsoProfile>();
+
+function getIsoProfile(isoClass: IsoRoadClass, seed: number): IsoProfile {
+  const key = `${isoClass}:${seed}`;
+  const cached = isoProfileCache.get(key);
+  if (cached) return cached;
+
+  const Gd0 = ISO_CLASSES[isoClass];
+  const length = 20;           // 20m repeating segment
+  const dx = 0.001;            // 1mm spatial step
+  const nSamples = Math.round(length / dx);
+  const nHarmonics = 500;
+  const omegaL = 2 * Math.PI * 0.01;  // 0.01 cycles/m
+  const omegaU = 2 * Math.PI * 10;    // 10 cycles/m
+  const dOmega = (omegaU - omegaL) / nHarmonics;
+
+  // Pre-compute amplitudes and frequencies
+  const omegas = new Float64Array(nHarmonics);
+  const amps = new Float64Array(nHarmonics);
+  for (let i = 0; i < nHarmonics; i++) {
+    omegas[i] = omegaL + i * dOmega;
+    amps[i] = Math.sqrt(2 * isoPSD(omegas[i], Gd0) * dOmega);
+  }
+
+  // Deterministic phases from seed (no Math.random)
+  const phases = new Float64Array(nHarmonics);
+  for (let i = 0; i < nHarmonics; i++) {
+    phases[i] = hash01(i, seed) * 2 * Math.PI;
+  }
+
+  // Sum harmonics
+  const z = new Float64Array(nSamples);
+  for (let s = 0; s < nSamples; s++) {
+    const x = s * dx;
+    let elevation = 0;
+    for (let i = 0; i < nHarmonics; i++) {
+      elevation += amps[i] * Math.cos(omegas[i] * x + phases[i]);
+    }
+    z[s] = elevation;
+  }
+
+  const profile: IsoProfile = { z, dx, length };
+  isoProfileCache.set(key, profile);
+  return profile;
+}
+
+/**
+ * Look up ISO 8608 profile elevation at a spatial position (in mm).
+ * Returns elevation in mm.
+ */
+function sampleIsoProfile(profile: IsoProfile, posMm: number, scale: number): number {
+  const posM = posMm / 1000; // convert mm → m
+  // Wrap into repeating segment
+  const wrapped = ((posM % profile.length) + profile.length) % profile.length;
+  // Linear interpolation
+  const idx = wrapped / profile.dx;
+  const i0 = Math.floor(idx);
+  const i1 = (i0 + 1) % profile.z.length;
+  const frac = idx - i0;
+  const elevationM = profile.z[i0] * (1 - frac) + profile.z[i1] * frac;
+  return elevationM * 1000 * scale; // m → mm, apply scale
+}
+
+function iso8608(
+  params: RoadProfileParams,
+  positions: CornerPositions,
+  time: number,
+): Record<Corner, number> {
+  const result: Record<Corner, number> = { FL: 0, FR: 0, RL: 0, RR: 0 };
+  const corners: Corner[] = ['FL', 'FR', 'RL', 'RR'];
+  const isoClass = params.isoClass ?? 'B';
+  const scale = params.isoScale ?? 1;
+  const seed = params.seed ?? 42;
+
+  const profile = getIsoProfile(isoClass, seed);
+
+  for (const c of corners) {
+    // Each corner's position along the road surface
+    const pos = cornerBumpPosition(time, params.speed, positions[c].x);
+    if (pos < 0) continue;
+    result[c] = sampleIsoProfile(profile, pos, scale);
+  }
+
+  return result;
+}
+
 // ─── Main entry point ───────────────────────────────────────────────
 
 /**
@@ -329,6 +450,8 @@ export function getGroundHeight(
       return step(params, cornerPositions, time);
     case 'random':
       return random(params, cornerPositions, time);
+    case 'iso8608':
+      return iso8608(params, cornerPositions, time);
     default:
       return flat();
   }

@@ -2,6 +2,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { useContext, useCallback, useRef, useState, useEffect } from 'react'
 import * as THREE from 'three'
+import { MOUSE, TOUCH } from 'three'
 import { GroundPlane } from './GroundPlane'
 import { SuspensionAssembly } from './SuspensionAssembly'
 import { ForceArrows } from './ForceArrows'
@@ -42,11 +43,36 @@ function snapAngle(angle: number, step: number): number {
   return Math.round(angle / step) * step
 }
 
+/** Set camera position from spherical coordinates around a target */
+function setCameraFromSpherical(
+  camera: THREE.Camera & { updateProjectionMatrix?: () => void },
+  target: THREE.Vector3,
+  dist: number,
+  azimuth: number,
+  polar: number,
+) {
+  camera.position.set(
+    target.x + dist * Math.sin(polar) * Math.sin(azimuth),
+    target.y + dist * Math.cos(polar),
+    target.z + dist * Math.sin(polar) * Math.cos(azimuth),
+  )
+  camera.lookAt(target)
+  camera.updateProjectionMatrix?.()
+}
+
+/** Drag threshold in px before stepping to the next 30-degree increment */
+const DRAG_STEP_PX = 40
+
 function CameraController({ activeView, controlsRef }: {
   activeView: ViewPreset
   controlsRef: React.MutableRefObject<any>
 }) {
-  const { camera, size } = useThree()
+  const { camera, size, gl } = useThree()
+
+  // Snapped angles for Fixed ISO mode
+  const snappedAz = useRef(snapAngle(Math.PI / 4, SNAP_RAD))
+  const snappedPol = useRef(snapAngle(Math.atan2(300, 200), SNAP_RAD))
+  const cameraDist = useRef(420)
 
   const applyView = useCallback((view: ViewPreset) => {
     const target = new THREE.Vector3(0, 50, 0)
@@ -65,10 +91,20 @@ function CameraController({ activeView, controlsRef }: {
       camera.far = 5000
     }
 
-    if (view === 'ISO') {
-      camera.position.set(300, 200, 300)
-    } else if (view === 'Fixed') {
-      camera.position.set(300, 200, 300)
+    if (view === 'ISO' || view === 'Fixed') {
+      if (view === 'Fixed') {
+        // Snap current angles to 30-degree grid
+        if (controls) {
+          snappedAz.current = snapAngle(controls.getAzimuthalAngle(), SNAP_RAD)
+          snappedPol.current = snapAngle(controls.getPolarAngle(), SNAP_RAD)
+          // Clamp polar away from poles
+          snappedPol.current = THREE.MathUtils.clamp(snappedPol.current, SNAP_RAD, Math.PI - SNAP_RAD)
+          cameraDist.current = camera.position.distanceTo(controls.target)
+        }
+        setCameraFromSpherical(camera, target, cameraDist.current, snappedAz.current, snappedPol.current)
+      } else {
+        camera.position.set(300, 200, 300)
+      }
     } else if (view === 'Front') {
       camera.position.set(0, 50, -500)
     } else if (view === 'Side') {
@@ -92,35 +128,133 @@ function CameraController({ activeView, controlsRef }: {
     setTimeout(() => applyView(activeView), 0)
   }
 
-  // For Fixed ISO: snap orbit angles on every change
+  // Fixed ISO: custom two-finger / right-click rotation with 30-degree stepping
   useEffect(() => {
+    if (activeView !== 'Fixed') return
+    const domElement = gl.domElement
     const controls = controlsRef.current
-    if (activeView !== 'Fixed' || !controls) return
 
-    const onchange = () => {
-      const az = controls.getAzimuthalAngle()
-      const pol = controls.getPolarAngle()
-      const snappedAz = snapAngle(az, SNAP_RAD)
-      const snappedPol = snapAngle(pol, SNAP_RAD)
+    // --- Mouse: right-button drag ---
+    let mouseDown = false
+    let mouseStartX = 0
+    let mouseStartY = 0
+    let accumX = 0
+    let accumY = 0
 
-      if (Math.abs(az - snappedAz) > 0.001 || Math.abs(pol - snappedPol) > 0.001) {
-        // Convert spherical to position
-        const dist = camera.position.distanceTo(controls.target)
-        const target = controls.target as THREE.Vector3
-        camera.position.set(
-          target.x + dist * Math.sin(snappedPol) * Math.sin(snappedAz),
-          target.y + dist * Math.cos(snappedPol),
-          target.z + dist * Math.sin(snappedPol) * Math.cos(snappedAz),
-        )
-        camera.lookAt(target)
-        camera.updateProjectionMatrix()
-        controls.update()
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 2) return
+      mouseDown = true
+      mouseStartX = e.clientX
+      mouseStartY = e.clientY
+      accumX = 0
+      accumY = 0
+      e.preventDefault()
+    }
+
+    const stepCamera = (dxSteps: number, dySteps: number) => {
+      if (dxSteps === 0 && dySteps === 0) return
+      snappedAz.current += dxSteps * SNAP_RAD
+      snappedPol.current += dySteps * SNAP_RAD
+      snappedPol.current = THREE.MathUtils.clamp(snappedPol.current, SNAP_RAD, Math.PI - SNAP_RAD)
+      const target = controls?.target ?? new THREE.Vector3(0, 50, 0)
+      setCameraFromSpherical(camera, target, cameraDist.current, snappedAz.current, snappedPol.current)
+      if (controls) controls.update()
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!mouseDown) return
+      accumX += e.clientX - mouseStartX
+      accumY += e.clientY - mouseStartY
+      mouseStartX = e.clientX
+      mouseStartY = e.clientY
+
+      let dxSteps = 0
+      let dySteps = 0
+      while (accumX > DRAG_STEP_PX) { dxSteps--; accumX -= DRAG_STEP_PX }
+      while (accumX < -DRAG_STEP_PX) { dxSteps++; accumX += DRAG_STEP_PX }
+      while (accumY > DRAG_STEP_PX) { dySteps--; accumY -= DRAG_STEP_PX }
+      while (accumY < -DRAG_STEP_PX) { dySteps++; accumY += DRAG_STEP_PX }
+      stepCamera(dxSteps, dySteps)
+    }
+
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button === 2) mouseDown = false
+    }
+
+    // --- Touch: two-finger drag ---
+    let touchActive = false
+    let touchStartX = 0
+    let touchStartY = 0
+    let touchAccumX = 0
+    let touchAccumY = 0
+
+    const touchCentroid = (touches: TouchList): [number, number] | null => {
+      if (touches.length < 2) return null
+      return [
+        (touches[0].clientX + touches[1].clientX) / 2,
+        (touches[0].clientY + touches[1].clientY) / 2,
+      ]
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        touchActive = true
+        const c = touchCentroid(e.touches)!
+        touchStartX = c[0]
+        touchStartY = c[1]
+        touchAccumX = 0
+        touchAccumY = 0
+        // Prevent OrbitControls from processing this as dolly
+        e.preventDefault()
+        e.stopPropagation()
       }
     }
 
-    controls.addEventListener('end', onchange)
-    return () => controls.removeEventListener('end', onchange)
-  }, [activeView, camera, controlsRef])
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchActive || e.touches.length < 2) return
+      const c = touchCentroid(e.touches)!
+      touchAccumX += c[0] - touchStartX
+      touchAccumY += c[1] - touchStartY
+      touchStartX = c[0]
+      touchStartY = c[1]
+
+      let dxSteps = 0
+      let dySteps = 0
+      while (touchAccumX > DRAG_STEP_PX) { dxSteps--; touchAccumX -= DRAG_STEP_PX }
+      while (touchAccumX < -DRAG_STEP_PX) { dxSteps++; touchAccumX += DRAG_STEP_PX }
+      while (touchAccumY > DRAG_STEP_PX) { dySteps--; touchAccumY -= DRAG_STEP_PX }
+      while (touchAccumY < -DRAG_STEP_PX) { dySteps++; touchAccumY += DRAG_STEP_PX }
+      stepCamera(dxSteps, dySteps)
+
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) touchActive = false
+    }
+
+    // Prevent context menu on right-click
+    const onContextMenu = (e: Event) => e.preventDefault()
+
+    domElement.addEventListener('mousedown', onMouseDown)
+    domElement.addEventListener('mousemove', onMouseMove)
+    domElement.addEventListener('mouseup', onMouseUp)
+    domElement.addEventListener('touchstart', onTouchStart, { passive: false })
+    domElement.addEventListener('touchmove', onTouchMove, { passive: false })
+    domElement.addEventListener('touchend', onTouchEnd)
+    domElement.addEventListener('contextmenu', onContextMenu)
+
+    return () => {
+      domElement.removeEventListener('mousedown', onMouseDown)
+      domElement.removeEventListener('mousemove', onMouseMove)
+      domElement.removeEventListener('mouseup', onMouseUp)
+      domElement.removeEventListener('touchstart', onTouchStart)
+      domElement.removeEventListener('touchmove', onTouchMove)
+      domElement.removeEventListener('touchend', onTouchEnd)
+      domElement.removeEventListener('contextmenu', onContextMenu)
+    }
+  }, [activeView, camera, gl, controlsRef])
 
   return null
 }
@@ -128,7 +262,6 @@ function CameraController({ activeView, controlsRef }: {
 export function Viewport() {
   const [activeView, setActiveView] = useState<ViewPreset>('ISO')
   const controlsRef = useRef<any>(null)
-  const fixedView = activeView === 'Front' || activeView === 'Side' || activeView === 'Top'
 
   return (
     <div className="flex-1 h-full relative">
@@ -148,7 +281,11 @@ export function Viewport() {
           ref={controlsRef}
           enableDamping
           dampingFactor={0.1}
-          enableRotate={!fixedView}
+          enableRotate={activeView === 'ISO'}
+          {...(activeView === 'Fixed' ? {
+            mouseButtons: { LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: undefined as any },
+            touches: { ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_PAN },
+          } : {})}
         />
         <CameraController activeView={activeView} controlsRef={controlsRef} />
         <axesHelper args={[30]} />

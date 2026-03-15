@@ -1,6 +1,6 @@
 import { useSimulationStore } from '../../store/useSimulationStore'
 import { ParamSlider } from '../params/ParamSlider'
-import type { Corner } from '../../types/suspension'
+import type { Corner, IsoRoadClass } from '../../types/suspension'
 
 export function RoadSurfaceInput() {
   const roadSurfaceType = useSimulationStore((s) => s.roadSurfaceType)
@@ -11,6 +11,8 @@ export function RoadSurfaceInput() {
   const roadFrequency = useSimulationStore((s) => s.roadFrequency)
   const roadAmplitude = useSimulationStore((s) => s.roadAmplitude)
   const roadTargetCorner = useSimulationStore((s) => s.roadTargetCorner)
+  const roadIsoClass = useSimulationStore((s) => s.roadIsoClass)
+  const roadIsoScale = useSimulationStore((s) => s.roadIsoScale)
   const setRoadSurface = useSimulationStore((s) => s.setRoadSurface)
 
   return (
@@ -30,6 +32,7 @@ export function RoadSurfaceInput() {
           <option value="washboard">Washboard</option>
           <option value="step">Step</option>
           <option value="random">Random</option>
+          <option value="iso8608">ISO 8608</option>
         </select>
       </div>
 
@@ -71,7 +74,30 @@ export function RoadSurfaceInput() {
             </>
           )}
 
-          {roadSurfaceType !== 'washboard' && roadSurfaceType !== 'random' && (
+          {roadSurfaceType === 'iso8608' && (
+            <>
+              <div className="flex items-center gap-2 py-0.5">
+                <label className="text-[10px] text-[#8899AA] w-[70px]">Class</label>
+                <select
+                  value={roadIsoClass}
+                  onChange={(e) => setRoadSurface({ roadIsoClass: e.target.value as IsoRoadClass })}
+                  className="flex-1"
+                >
+                  <option value="A">A (Very Good)</option>
+                  <option value="B">B (Good)</option>
+                  <option value="C">C (Average)</option>
+                  <option value="D">D (Poor)</option>
+                  <option value="E">E (Very Poor)</option>
+                  <option value="F">F</option>
+                  <option value="G">G</option>
+                  <option value="H">H</option>
+                </select>
+              </div>
+              <ParamSlider label="Scale" value={roadIsoScale} min={0.1} max={10} step={0.1} unit="x" onChange={(v) => setRoadSurface({ roadIsoScale: v })} />
+            </>
+          )}
+
+          {roadSurfaceType !== 'washboard' && roadSurfaceType !== 'random' && roadSurfaceType !== 'iso8608' && (
             <ParamSlider label="Height" value={roadBumpHeight} min={1} max={30} step={0.5} unit="mm" onChange={(v) => setRoadSurface({ roadBumpHeight: v })} />
           )}
 

@@ -98,6 +98,8 @@ function defaultSimulationState(): SimulationState {
     roadFrequency: 1,
     roadAmplitude: 5,
     roadTargetCorner: 'FL',
+    roadIsoClass: 'B',
+    roadIsoScale: 1,
     // Force arrow visibility
     forceVisibility: defaultForceVisibility(),
     forceScale: 1,
@@ -142,7 +144,8 @@ interface SimulationStore extends SimulationState {
   // Road surface
   setRoadSurface: (params: Partial<Pick<SimulationState,
     'roadSurfaceType' | 'roadBumpHeight' | 'roadBumpWidth' | 'roadBumpShape' |
-    'roadSpeed' | 'roadFrequency' | 'roadAmplitude' | 'roadTargetCorner'
+    'roadSpeed' | 'roadFrequency' | 'roadAmplitude' | 'roadTargetCorner' |
+    'roadIsoClass' | 'roadIsoScale'
   >>) => void;
 
   // Force visualization
