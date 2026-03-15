@@ -791,6 +791,8 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
   const vehicle = useVehicleStore((s) => s.vehicle)
   const geo = useVehicleStore((s) => axle === 'front' ? s.frontGeometry : s.rearGeometry)
   const swayBar = useVehicleStore((s) => axle === 'front' ? s.frontSwayBar : s.rearSwayBar)
+  const leftCorner = useSimulationStore((s) => s.corners[axle === 'front' ? 'FL' : 'RL'])
+  const rightCorner = useSimulationStore((s) => s.corners[axle === 'front' ? 'FR' : 'RR'])
   const chassisHeave = useSimulationStore((s) => s.chassisHeave)
   const rollAngle = useSimulationStore((s) => s.rollAngle)
   const pitchAngle = useSimulationStore((s) => s.pitchAngle)
@@ -811,16 +813,21 @@ function AntiRollBarVisual({ axle }: { axle: 'front' | 'rear' }) {
   const y = vehicle.rideHeight + chassisHeave + innerPivotHeightLower + 5
   const halfWidth = swayBar.armLength
 
+  // Torsion bar on chassis
   const pL = rot(-halfWidth, y, z)
   const pC = rot(0, y + 3, z)
   const pR = rot(halfWidth, y, z)
-  const pLdrop = rot(-halfWidth, y - 8, z)
-  const pRdrop = rot(halfWidth, y - 8, z)
+
+  // Drop links connect to the upright (lower ball joint positions)
+  const leftBJ = leftCorner.lowerBJPosition
+  const rightBJ = rightCorner.lowerBJPosition
+  const pLdrop: [number, number, number] = [-leftBJ.lateral, leftBJ.vertical, z + leftBJ.longitudinal]
+  const pRdrop: [number, number, number] = [rightBJ.lateral, rightBJ.vertical, z + rightBJ.longitudinal]
 
   return (
     <group>
       <Line points={[pL, pC, pR]} color={MAGENTA} lineWidth={1.5} />
-      {/* Drop links */}
+      {/* Drop links to uprights */}
       <Line points={[pL, pLdrop]} color={MAGENTA} lineWidth={1} />
       <Line points={[pR, pRdrop]} color={MAGENTA} lineWidth={1} />
     </group>

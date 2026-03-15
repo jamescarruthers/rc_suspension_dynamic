@@ -98,6 +98,10 @@ export function computeCornerForces(
 /**
  * Compute the sway bar (anti-roll bar) force for one side.
  *
+ * The ARB is attached to the uprights via drop links, so it responds to
+ * the differential wheel travel (suspension compression) between left and
+ * right sides.
+ *
  * Returns the force applied to the LEFT side (N). Right side gets -force.
  *
  * Derivation:

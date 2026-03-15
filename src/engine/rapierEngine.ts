@@ -385,15 +385,15 @@ export function stepRapierSimulation(
     suspForces[c] = forces.totalSuspForce;
   }
 
-  // Sway bar forces
+  // Sway bar forces (attached to uprights — uses wheel travel at upright)
   const frontSwayForce = computeSwayBarForce(
-    newCorners.FL.shockCompression, newCorners.FR.shockCompression, frontSwayBar,
+    newCorners.FL.suspensionCompression, newCorners.FR.suspensionCompression, frontSwayBar,
   );
   newCorners.FL.swayBarForce = frontSwayForce;
   newCorners.FR.swayBarForce = -frontSwayForce;
 
   const rearSwayForce = computeSwayBarForce(
-    newCorners.RL.shockCompression, newCorners.RR.shockCompression, rearSwayBar,
+    newCorners.RL.suspensionCompression, newCorners.RR.suspensionCompression, rearSwayBar,
   );
   newCorners.RL.swayBarForce = rearSwayForce;
   newCorners.RR.swayBarForce = -rearSwayForce;
