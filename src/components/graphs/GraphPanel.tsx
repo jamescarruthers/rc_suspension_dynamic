@@ -87,52 +87,54 @@ export function GraphPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Channel selector — scrollable horizontally, larger tap targets on mobile */}
-      <div className="flex items-center gap-2 px-3 py-1 border-b border-[#1E2D3D] overflow-x-auto"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        <span className="text-[9px] md:text-[9px] text-[#556677] font-[var(--font-mono)] shrink-0">CHANNELS:</span>
-        <div className="flex gap-1 flex-wrap">
-          {Object.entries(channelConfig).map(([key, cfg]) => (
-            <button
-              key={key}
-              onClick={() => {
-                if (graphChannels.includes(key)) {
-                  setGraphChannels(graphChannels.filter((c) => c !== key))
-                } else {
-                  setGraphChannels([...graphChannels, key])
-                }
-              }}
-              className={`text-[10px] md:text-[8px] px-2 md:px-1.5 py-1 md:py-0.5 rounded border transition-colors shrink-0 ${
-                graphChannels.includes(key)
-                  ? 'border-current text-current'
-                  : 'border-[#1E2D3D] text-[#556677] hover:text-[#8899AA]'
-              }`}
-              style={graphChannels.includes(key) ? { color: cfg.color } : undefined}
-            >
-              {cfg.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 shrink-0 ml-auto">
-          {[2, 5, 10].map((t) => (
-            <button
-              key={t}
-              onClick={() => setGraphTimeWindow(t)}
-              className={`text-[11px] md:text-[9px] px-3 md:px-2 py-1 md:py-0.5 rounded border ${
-                graphTimeWindow === t
-                  ? 'bg-[#00FFE0] text-[#0A0E14] border-[#00FFE0]'
-                  : 'border-[#1E2D3D] text-[#556677]'
-              }`}
-            >
-              {t}s
-            </button>
-          ))}
+      {/* Channel selector — horizontal scroll on mobile, wraps on desktop */}
+      <div className="shrink-0 border-b border-[#1E2D3D]">
+        <div className="flex items-center gap-2 px-3 py-1 overflow-x-auto"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <span className="text-[9px] text-[#556677] font-[var(--font-mono)] shrink-0">CHANNELS:</span>
+          <div className="flex gap-1 md:flex-wrap shrink-0 md:shrink">
+            {Object.entries(channelConfig).map(([key, cfg]) => (
+              <button
+                key={key}
+                onClick={() => {
+                  if (graphChannels.includes(key)) {
+                    setGraphChannels(graphChannels.filter((c) => c !== key))
+                  } else {
+                    setGraphChannels([...graphChannels, key])
+                  }
+                }}
+                className={`text-[10px] md:text-[8px] px-2 md:px-1.5 py-1 md:py-0.5 rounded border transition-colors shrink-0 ${
+                  graphChannels.includes(key)
+                    ? 'border-current text-current'
+                    : 'border-[#1E2D3D] text-[#556677] hover:text-[#8899AA]'
+                }`}
+                style={graphChannels.includes(key) ? { color: cfg.color } : undefined}
+              >
+                {cfg.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 shrink-0 ml-auto">
+            {[2, 5, 10].map((t) => (
+              <button
+                key={t}
+                onClick={() => setGraphTimeWindow(t)}
+                className={`text-[11px] md:text-[9px] px-3 md:px-2 py-1 md:py-0.5 rounded border ${
+                  graphTimeWindow === t
+                    ? 'bg-[#00FFE0] text-[#0A0E14] border-[#00FFE0]'
+                    : 'border-[#1E2D3D] text-[#556677]'
+                }`}
+              >
+                {t}s
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Chart — touch-action pan-x so vertical scroll is not hijacked */}
-      <div className="flex-1 min-h-0 px-2 py-1" style={{ touchAction: 'pan-x' }}>
+      {/* Chart — min-h-[200px] ensures it renders on mobile; touch-action pan-x so vertical scroll is not hijacked */}
+      <div className="flex-1 min-h-[200px] px-2 py-1" style={{ touchAction: 'pan-x' }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={filteredHistory}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1E2D3D" />
@@ -180,7 +182,7 @@ export function GraphPanel() {
 
       {/* Channel stats — min / max / avg */}
       {graphChannels.length > 0 && Object.keys(channelStats).length > 0 && (
-        <div className="px-3 py-1 border-t border-[#1E2D3D] overflow-x-auto"
+        <div className="shrink-0 px-3 py-1 border-t border-[#1E2D3D] overflow-x-auto"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div className="flex gap-3 md:gap-4 flex-wrap md:flex-nowrap">
