@@ -41,6 +41,12 @@ const channelConfig: Record<string, { label: string; color: string; unit: string
   rearRCHeight: { label: 'Rear RC Height', color: '#FF6B35', unit: 'mm' },
 }
 
+function formatStat(v: number): string {
+  if (Math.abs(v) >= 100) return v.toFixed(1)
+  if (Math.abs(v) >= 10) return v.toFixed(2)
+  return v.toFixed(3)
+}
+
 export function GraphPanel() {
   const graphChannels = useSimulationStore((s) => s.graphChannels)
   const graphHistory = useSimulationStore((s) => s.graphHistory)
@@ -55,11 +61,37 @@ export function GraphPanel() {
     return graphHistory.filter((p) => p.time >= windowStart)
   }, [graphHistory, graphTimeWindow])
 
+  // Compute min/max/avg for each active channel over the displayed duration
+  const channelStats = useMemo(() => {
+    const stats: Record<string, { min: number; max: number; avg: number }> = {}
+    if (filteredHistory.length === 0) return stats
+    for (const ch of graphChannels) {
+      let min = Infinity
+      let max = -Infinity
+      let sum = 0
+      let count = 0
+      for (const point of filteredHistory) {
+        const v = point[ch]
+        if (v == null) continue
+        if (v < min) min = v
+        if (v > max) max = v
+        sum += v
+        count++
+      }
+      if (count > 0) {
+        stats[ch] = { min, max, avg: sum / count }
+      }
+    }
+    return stats
+  }, [filteredHistory, graphChannels])
+
   return (
     <div className="flex flex-col h-full">
-      {/* Channel selector */}
-      <div className="flex items-center gap-2 px-3 py-1 border-b border-[#1E2D3D] overflow-x-auto">
-        <span className="text-[9px] text-[#556677] font-[var(--font-mono)] shrink-0">CHANNELS:</span>
+      {/* Channel selector — scrollable horizontally, larger tap targets on mobile */}
+      <div className="flex items-center gap-2 px-3 py-1 border-b border-[#1E2D3D] overflow-x-auto"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <span className="text-[9px] md:text-[9px] text-[#556677] font-[var(--font-mono)] shrink-0">CHANNELS:</span>
         <div className="flex gap-1 flex-wrap">
           {Object.entries(channelConfig).map(([key, cfg]) => (
             <button
@@ -71,7 +103,7 @@ export function GraphPanel() {
                   setGraphChannels([...graphChannels, key])
                 }
               }}
-              className={`text-[8px] px-1.5 py-0.5 rounded border transition-colors shrink-0 ${
+              className={`text-[10px] md:text-[8px] px-2 md:px-1.5 py-1 md:py-0.5 rounded border transition-colors shrink-0 ${
                 graphChannels.includes(key)
                   ? 'border-current text-current'
                   : 'border-[#1E2D3D] text-[#556677] hover:text-[#8899AA]'
@@ -87,7 +119,7 @@ export function GraphPanel() {
             <button
               key={t}
               onClick={() => setGraphTimeWindow(t)}
-              className={`text-[9px] px-2 py-0.5 rounded border ${
+              className={`text-[11px] md:text-[9px] px-3 md:px-2 py-1 md:py-0.5 rounded border ${
                 graphTimeWindow === t
                   ? 'bg-[#00FFE0] text-[#0A0E14] border-[#00FFE0]'
                   : 'border-[#1E2D3D] text-[#556677]'
@@ -99,8 +131,8 @@ export function GraphPanel() {
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="flex-1 min-h-0 px-2 py-1">
+      {/* Chart — touch-action pan-x so vertical scroll is not hijacked */}
+      <div className="flex-1 min-h-0 px-2 py-1" style={{ touchAction: 'pan-x' }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={filteredHistory}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1E2D3D" />
@@ -145,6 +177,40 @@ export function GraphPanel() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Channel stats — min / max / avg */}
+      {graphChannels.length > 0 && Object.keys(channelStats).length > 0 && (
+        <div className="px-3 py-1 border-t border-[#1E2D3D] overflow-x-auto"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="flex gap-3 md:gap-4 flex-wrap md:flex-nowrap">
+            {graphChannels.map((ch) => {
+              const cfg = channelConfig[ch]
+              const s = channelStats[ch]
+              if (!cfg || !s) return null
+              return (
+                <div key={ch} className="flex items-center gap-2 shrink-0">
+                  <span
+                    className="text-[10px] md:text-[9px] font-[var(--font-mono)] font-bold"
+                    style={{ color: cfg.color }}
+                  >
+                    {cfg.label}
+                  </span>
+                  <span className="text-[10px] md:text-[9px] text-[#556677] font-[var(--font-mono)]">
+                    min {formatStat(s.min)}{cfg.unit && ` ${cfg.unit}`}
+                  </span>
+                  <span className="text-[10px] md:text-[9px] text-[#556677] font-[var(--font-mono)]">
+                    max {formatStat(s.max)}{cfg.unit && ` ${cfg.unit}`}
+                  </span>
+                  <span className="text-[10px] md:text-[9px] text-[#556677] font-[var(--font-mono)]">
+                    avg {formatStat(s.avg)}{cfg.unit && ` ${cfg.unit}`}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
