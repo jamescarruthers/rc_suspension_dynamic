@@ -340,20 +340,23 @@ function getIsoProfile(isoClass: IsoRoadClass, seed: number): IsoProfile {
   if (cached) return cached;
 
   const Gd0 = ISO_CLASSES[isoClass];
-  const length = 20;           // 20m repeating segment
-  const dx = 0.001;            // 1mm spatial step
+  const length = 100;          // 100m repeating segment
+  const dx = 0.005;            // 5mm spatial step
   const nSamples = Math.round(length / dx);
-  const nHarmonics = 500;
-  const omegaL = 2 * Math.PI * 0.01;  // 0.01 cycles/m
-  const omegaU = 2 * Math.PI * 10;    // 10 cycles/m
-  const dOmega = (omegaU - omegaL) / nHarmonics;
+
+  // Use integer multiples of the fundamental frequency so the profile
+  // is exactly periodic over the segment length (no wrap discontinuity).
+  const omega1 = 2 * Math.PI / length;          // fundamental: 0.01 cycles/m
+  const nMin = 1;                                 // lowest harmonic
+  const nMax = Math.floor(10 * length);           // 10 cycles/m → harmonic 1000
+  const nHarmonics = nMax - nMin + 1;
 
   // Pre-compute amplitudes and frequencies
   const omegas = new Float64Array(nHarmonics);
   const amps = new Float64Array(nHarmonics);
   for (let i = 0; i < nHarmonics; i++) {
-    omegas[i] = omegaL + i * dOmega;
-    amps[i] = Math.sqrt(2 * isoPSD(omegas[i], Gd0) * dOmega);
+    omegas[i] = (nMin + i) * omega1;
+    amps[i] = Math.sqrt(2 * isoPSD(omegas[i], Gd0) * omega1);
   }
 
   // Deterministic phases from seed (no Math.random)

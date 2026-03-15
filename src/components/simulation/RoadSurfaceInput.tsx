@@ -105,7 +105,11 @@ export function RoadSurfaceInput() {
             <ParamSlider label="Length" value={roadBumpWidth} min={5} max={300} step={5} unit="mm" onChange={(v) => setRoadSurface({ roadBumpWidth: v })} />
           )}
 
-          <ParamSlider label="Speed" value={roadSpeed} min={10} max={2000} step={10} unit="mm/s" onChange={(v) => setRoadSurface({ roadSpeed: v })} />
+          {roadSurfaceType === 'iso8608' ? (
+            <ParamSlider label="Speed" value={Math.round(roadSpeed * 3.6 / 1000)} min={0} max={120} step={1} unit="km/h" onChange={(v) => setRoadSurface({ roadSpeed: v * 1000 / 3.6 })} />
+          ) : (
+            <ParamSlider label="Speed" value={roadSpeed} min={10} max={2000} step={10} unit="mm/s" onChange={(v) => setRoadSurface({ roadSpeed: v })} />
+          )}
 
           {roadSurfaceType === 'washboard' && (
             <ParamSlider label="Amplitude" value={roadAmplitude} min={0.5} max={10} step={0.5} unit="mm" onChange={(v) => setRoadSurface({ roadAmplitude: v })} />
