@@ -69,7 +69,6 @@ export function computeHydraulicForces(
   if (!config.enabled) return result;
 
   const A_bore = boreArea(config.cylinderBore);
-  const A_rod = cylinderArea(config.cylinderBore, config.cylinderRodDiameter);
   const viscosity = config.fluidViscosity > 0
     ? config.fluidViscosity * 1e-9  // Convert cSt-like units to N·s/mm²
     : DEFAULT_VISCOSITY;
