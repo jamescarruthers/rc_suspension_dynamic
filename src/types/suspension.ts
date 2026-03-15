@@ -170,6 +170,8 @@ export interface SimulationState {
   roadFrequency: number;
   roadAmplitude: number;
   roadTargetCorner: Corner | 'front' | 'rear' | 'all';
+  roadIsoClass: IsoRoadClass;
+  roadIsoScale: number;
   // Force arrow visibility
   forceVisibility: Record<string, boolean>;
   forceScale: number;
@@ -205,7 +207,10 @@ export type RoadProfileType =
   | 'diagonalTwist'
   | 'washboard'
   | 'step'
-  | 'random';
+  | 'random'
+  | 'iso8608';
+
+export type IsoRoadClass = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 
 export type BumpShape = 'halfsine' | 'fullsine' | 'triangle' | 'square';
 
@@ -224,4 +229,8 @@ export interface RoadProfileParams {
   targetCorner?: Corner;
   /** Random seed */
   seed?: number;
+  /** ISO 8608 class A–H */
+  isoClass?: IsoRoadClass;
+  /** Height scale multiplier for ISO 8608 (default 1.0) */
+  isoScale?: number;
 }

@@ -239,6 +239,8 @@ export function stepRK4Simulation(
       frequency: state.roadFrequency,
       shape: state.roadBumpShape as any,
       targetCorner: state.roadTargetCorner as any,
+      isoClass: state.roadIsoClass,
+      isoScale: state.roadIsoScale,
     };
     const ground = getGroundHeightAndVelocity(
       state.roadSurfaceType as any,
