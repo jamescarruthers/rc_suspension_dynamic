@@ -12,12 +12,77 @@ export interface CornerPositions {
 }
 
 /**
- * Simple sin-based pseudo-random noise in range [-1, 1].
- * Deterministic for a given input.
+ * Deterministic hash in [0, 1) for a given integer key and seed.
  */
-function pseudoRandom(x: number, seed: number = 0): number {
-  const v = Math.sin((x + seed) * 12.9898 + seed * 78.233) * 43758.5453;
-  return (v - Math.floor(v)) * 2 - 1;
+function hash01(key: number, seed: number): number {
+  const v = Math.sin((key + seed) * 12.9898 + seed * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+/**
+ * Generate a blue-noise height sequence via Mitchell's best-candidate.
+ * Produces `count` bump positions in [0, length) with well-spaced heights
+ * in [0, maxHeight], cached per (seed, count) pair.
+ */
+const blueNoiseCache = new Map<string, { positions: number[]; heights: number[] }>();
+
+function getBlueNoise(
+  length: number,
+  maxHeight: number,
+  seed: number,
+  spacing: number,
+): { positions: number[]; heights: number[] } {
+  const count = Math.max(1, Math.floor(length / spacing));
+  const key = `${seed}:${count}`;
+  const cached = blueNoiseCache.get(key);
+  if (cached) return cached;
+
+  const candidates = 20; // candidates per accepted sample
+  const positions: number[] = [];
+  const heights: number[] = [];
+
+  // First point from hash
+  positions.push(hash01(0, seed) * length);
+  heights.push(hash01(1, seed) * maxHeight);
+
+  for (let i = 1; i < count; i++) {
+    let bestPos = 0;
+    let bestHeight = 0;
+    let bestMinDist = -1;
+
+    for (let c = 0; c < candidates; c++) {
+      const cp = hash01(i * candidates + c, seed + 100) * length;
+      const ch = hash01(i * candidates + c, seed + 200) * maxHeight;
+
+      // Find minimum distance to existing points (in normalised 2D: position/length, height/maxHeight)
+      let minDist = Infinity;
+      for (let j = 0; j < positions.length; j++) {
+        const dp = (cp - positions[j]) / length;
+        const dh = (ch - heights[j]) / maxHeight;
+        const d = dp * dp + dh * dh;
+        if (d < minDist) minDist = d;
+      }
+
+      if (minDist > bestMinDist) {
+        bestMinDist = minDist;
+        bestPos = cp;
+        bestHeight = ch;
+      }
+    }
+
+    positions.push(bestPos);
+    heights.push(bestHeight);
+  }
+
+  // Sort by position for fast lookup
+  const indices = positions.map((_, idx) => idx).sort((a, b) => positions[a] - positions[b]);
+  const sorted = {
+    positions: indices.map(i => positions[i]),
+    heights: indices.map(i => heights[i]),
+  };
+
+  blueNoiseCache.set(key, sorted);
+  return sorted;
 }
 
 /**
@@ -201,15 +266,32 @@ function random(
   const corners: Corner[] = ['FL', 'FR', 'RL', 'RR'];
   const seed = params.seed ?? 42;
 
+  // Blue-noise terrain: generate well-spaced bumps over a repeating segment
+  const segmentLength = 2000; // 2m repeating segment
+  const bumpSpacing = 15;     // ~15mm mean spacing between bump features
+  const bn = getBlueNoise(segmentLength, params.height, seed, bumpSpacing);
+
   for (const c of corners) {
     const pos = cornerBumpPosition(time, params.speed, positions[c].x);
-    // Sample pseudo-random at quantized positions for repeatable terrain
-    const quantized = Math.floor(pos / 5) * 5;
-    const noise1 = pseudoRandom(quantized * 0.1, seed);
-    const noise2 = pseudoRandom(quantized * 0.037, seed + 7);
-    // Blend two frequencies for more natural feel
-    result[c] = params.height * 0.5 * (noise1 * 0.6 + noise2 * 0.4 + 0.5);
-    result[c] = Math.max(0, result[c]);
+    if (pos < 0) continue;
+
+    // Wrap position into segment
+    const p = ((pos % segmentLength) + segmentLength) % segmentLength;
+
+    // Binary search for surrounding blue-noise points
+    let lo = 0, hi = bn.positions.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (bn.positions[mid] <= p) lo = mid; else hi = mid;
+    }
+
+    // Cosine interpolation between neighbouring points for smooth terrain
+    const p0 = bn.positions[lo], p1 = bn.positions[hi];
+    const h0 = bn.heights[lo], h1 = bn.heights[hi];
+    const span = p1 > p0 ? p1 - p0 : (p1 + segmentLength - p0);
+    const frac = (p - p0 + segmentLength) % segmentLength / span;
+    const t = 0.5 * (1 - Math.cos(Math.PI * Math.min(frac, 1)));
+    result[c] = h0 + (h1 - h0) * t;
   }
 
   return result;

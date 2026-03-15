@@ -1,6 +1,6 @@
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { useContext, useCallback, useRef, useState } from 'react'
+import { useContext, useCallback, useRef, useState, useEffect } from 'react'
 import * as THREE from 'three'
 import { GroundPlane } from './GroundPlane'
 import { SuspensionAssembly } from './SuspensionAssembly'
@@ -32,9 +32,15 @@ function PerfStatsOverlay() {
   )
 }
 
-type ViewPreset = 'ISO' | 'Front' | 'Side' | 'Top'
+type ViewPreset = 'ISO' | 'Fixed' | 'Front' | 'Side' | 'Top'
 
 const ORTHO_ZOOM = 2.5
+const SNAP_RAD = THREE.MathUtils.degToRad(30)
+
+/** Snap an angle to the nearest multiple of `step` radians */
+function snapAngle(angle: number, step: number): number {
+  return Math.round(angle / step) * step
+}
 
 function CameraController({ activeView, controlsRef }: {
   activeView: ViewPreset
@@ -46,37 +52,32 @@ function CameraController({ activeView, controlsRef }: {
     const target = new THREE.Vector3(0, 50, 0)
     const controls = controlsRef.current
 
-    if (view === 'ISO') {
-      // Switch to perspective
-      if (camera instanceof THREE.OrthographicCamera) {
-        // Will be handled by Canvas re-mount via key
-      }
-      camera.position.set(300, 200, 300)
-      camera.lookAt(target)
-    } else {
-      // Orthographic views
-      const aspect = size.width / size.height
-      if (camera instanceof THREE.OrthographicCamera) {
-        const halfH = size.height / ORTHO_ZOOM
-        const halfW = halfH * aspect
-        camera.left = -halfW
-        camera.right = halfW
-        camera.top = halfH
-        camera.bottom = -halfH
-        camera.near = -5000
-        camera.far = 5000
-      }
-
-      if (view === 'Front') {
-        camera.position.set(0, 50, -500)
-      } else if (view === 'Side') {
-        camera.position.set(500, 50, 0)
-      } else if (view === 'Top') {
-        camera.position.set(0, 500, -0.01)
-      }
-      camera.lookAt(target)
+    // Set up orthographic frustum
+    const aspect = size.width / size.height
+    if (camera instanceof THREE.OrthographicCamera) {
+      const halfH = size.height / ORTHO_ZOOM
+      const halfW = halfH * aspect
+      camera.left = -halfW
+      camera.right = halfW
+      camera.top = halfH
+      camera.bottom = -halfH
+      camera.near = -5000
+      camera.far = 5000
     }
 
+    if (view === 'ISO') {
+      camera.position.set(300, 200, 300)
+    } else if (view === 'Fixed') {
+      camera.position.set(300, 200, 300)
+    } else if (view === 'Front') {
+      camera.position.set(0, 50, -500)
+    } else if (view === 'Side') {
+      camera.position.set(500, 50, 0)
+    } else if (view === 'Top') {
+      camera.position.set(0, 500, -0.01)
+    }
+
+    camera.lookAt(target)
     camera.updateProjectionMatrix()
     if (controls) {
       controls.target.copy(target)
@@ -88,9 +89,38 @@ function CameraController({ activeView, controlsRef }: {
   const lastView = useRef<ViewPreset | null>(null)
   if (activeView !== lastView.current) {
     lastView.current = activeView
-    // Defer to allow the new camera to be set up on Canvas remount
     setTimeout(() => applyView(activeView), 0)
   }
+
+  // For Fixed ISO: snap orbit angles on every change
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (activeView !== 'Fixed' || !controls) return
+
+    const onchange = () => {
+      const az = controls.getAzimuthalAngle()
+      const pol = controls.getPolarAngle()
+      const snappedAz = snapAngle(az, SNAP_RAD)
+      const snappedPol = snapAngle(pol, SNAP_RAD)
+
+      if (Math.abs(az - snappedAz) > 0.001 || Math.abs(pol - snappedPol) > 0.001) {
+        // Convert spherical to position
+        const dist = camera.position.distanceTo(controls.target)
+        const target = controls.target as THREE.Vector3
+        camera.position.set(
+          target.x + dist * Math.sin(snappedPol) * Math.sin(snappedAz),
+          target.y + dist * Math.cos(snappedPol),
+          target.z + dist * Math.sin(snappedPol) * Math.cos(snappedAz),
+        )
+        camera.lookAt(target)
+        camera.updateProjectionMatrix()
+        controls.update()
+      }
+    }
+
+    controls.addEventListener('end', onchange)
+    return () => controls.removeEventListener('end', onchange)
+  }, [activeView, camera, controlsRef])
 
   return null
 }
@@ -98,18 +128,13 @@ function CameraController({ activeView, controlsRef }: {
 export function Viewport() {
   const [activeView, setActiveView] = useState<ViewPreset>('ISO')
   const controlsRef = useRef<any>(null)
-  const isOrtho = activeView !== 'ISO'
+  const fixedView = activeView === 'Front' || activeView === 'Side' || activeView === 'Top'
 
   return (
     <div className="flex-1 h-full relative">
       <Canvas
-        key={isOrtho ? 'ortho' : 'persp'}
-        orthographic={isOrtho}
-        camera={
-          isOrtho
-            ? { position: [0, 50, -500], zoom: ORTHO_ZOOM, near: -5000, far: 5000 }
-            : { position: [300, 200, 300], fov: 50, near: 1, far: 5000 }
-        }
+        orthographic
+        camera={{ position: [300, 200, 300], zoom: ORTHO_ZOOM, near: -5000, far: 5000 }}
         gl={{ antialias: true }}
         style={{ background: '#0A0E14' }}
       >
@@ -123,9 +148,7 @@ export function Viewport() {
           ref={controlsRef}
           enableDamping
           dampingFactor={0.1}
-          maxDistance={isOrtho ? Infinity : 2000}
-          minDistance={isOrtho ? 0 : 50}
-          enableRotate={!isOrtho}
+          enableRotate={!fixedView}
         />
         <CameraController activeView={activeView} controlsRef={controlsRef} />
         <axesHelper args={[30]} />
@@ -177,7 +200,7 @@ function CameraPresets({ activeView, setActiveView }: {
 }) {
   return (
     <div className="absolute top-2 right-2 flex gap-1">
-      {(['ISO', 'Front', 'Side', 'Top'] as ViewPreset[]).map((view) => (
+      {(['ISO', 'Fixed', 'Front', 'Side', 'Top'] as ViewPreset[]).map((view) => (
         <button
           key={view}
           onClick={() => setActiveView(view)}
